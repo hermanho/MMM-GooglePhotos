@@ -30,7 +30,6 @@ Module.register("MMM-GooglePhotos", {
 		wrapper.style.minWidth = this.config.showWidth
 		wrapper.style.minHeight = this.config.showHeight
 		wrapper.style.backgroundSize = this.config.mode
-		wrapper.innerHTML = "&nbsp;"
     return wrapper
   },
 
