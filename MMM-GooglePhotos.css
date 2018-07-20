@@ -1,0 +1,17 @@
+
+#GPHOTO {
+  background-size:cover; /* or use 'contain' for your purpose */
+  background-repeat:no-repeat;
+  background-position:center;
+  transition: background-image 2s linear 1s;
+}
+
+.region.fullscreen #GPHOTO {
+  position:absolute;
+}
+
+/*
+.region > .container {
+  background-color: rgba(0,0,0,0.5);
+}
+*/

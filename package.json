@@ -1,0 +1,19 @@
+{
+  "name": "MMM-GooglePhotos",
+  "version": "1.0.0",
+  "description": "MagicMirror module for Google Photos",
+  "license": "MIT",
+  "author": "eouia0819@gmail.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eouia/MMM-GooglePhotos"
+  },
+  "dependencies": {
+    "google-auth-library": "^1.6.1",
+    "grpc": "^1.13.0",
+    "opn": "^5.3.0"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^1.8.1"
+  }
+}
