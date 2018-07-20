@@ -51,7 +51,7 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
 ```javascript
 {
   module: "MMM-GooglePhotos",
-  position: "fullscreen_below",
+  position: "top_right",
   config: {
     albumId: "<YOUR_GOOGLE_PHOTOS_ALBUM_ID>", // your album id from result of `auth_and_test.js`
     refreshInterval: 1000*60,  // too short refreshing might cause API quota limit. Under 10sec will exhaust your quota(usually total <25000 per day).
