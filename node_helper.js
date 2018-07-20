@@ -17,6 +17,7 @@ module.exports = NodeHelper.create({
     console.log(this.name + " started")
     this.config = {}
     this.items = []
+    this.tempItems = []
     this.accessToken = ""
     this.authConfig = {}
     this.started = false
@@ -29,7 +30,7 @@ module.exports = NodeHelper.create({
     console.log(this.name + " initialized after loading.")
     this.authConfig = {
       keyFilePath : path.resolve(__dirname, "credentials.json"),
-			savedTokensPath : path.resolve(__dirname, "token.json"),
+      savedTokensPath : path.resolve(__dirname, "token.json"),
       scope: "https://www.googleapis.com/auth/photoslibrary.readonly"
     }
     this.scanPhotos()
@@ -39,9 +40,8 @@ module.exports = NodeHelper.create({
   },
 
   scanPhotos: function() {
-
+    this.tempItems = []
     var auth = new Auth(this.authConfig)
-
     auth.on('ready', (client) => {
       this.accessToken = client.credentials.access_token
       this.getPhotos()
@@ -90,7 +90,7 @@ module.exports = NodeHelper.create({
               "id": mediaItems[i].id,
               "creationTime": Date.parse(mediaItems[i].mediaMetadata.creationTime),
             }
-            self.items.push(item)
+            self.tempItems.push(item)
           }
         }
         if (found > 0 && body.nextPageToken) {
@@ -107,28 +107,29 @@ module.exports = NodeHelper.create({
   finishedScan: function() {
     switch(this.config.sort) {
       case "time":
-        this.items.sort((a, b)=>{
+        this.tempItems.sort((a, b)=>{
           return b.creationTime - a.creationTime
         })
         break
       case "reverse":
-        this.items.sort((a, b)=>{
+        this.tempItems.sort((a, b)=>{
           return a.creationTime - b.creationTime
         })
         break
       case "random":
-        var currentIndex = this.items.length, temporaryValue, randomIndex
+        var currentIndex = this.tempItems.length, temporaryValue, randomIndex
         while (0 !== currentIndex) {
           randomIndex = Math.floor(Math.random() * currentIndex);
           currentIndex -= 1;
-          temporaryValue = this.items[currentIndex];
-          this.items[currentIndex] = this.items[randomIndex];
-          this.items[randomIndex] = temporaryValue;
+          temporaryValue = this.tempItems[currentIndex];
+          this.tempItems[currentIndex] = this.tempItems[randomIndex];
+          this.tempItems[randomIndex] = temporaryValue;
         }
         break
     }
-    console.log("[GPHOTO] Scan finished :", this.items.length)
+    console.log("[GPHOTO] Scan finished :", this.tempItems.length)
     //this.sendSocketNotification("IMAGE_LIST", this.items)
+    this.items = this.tempItems
     if (this.started == false) {
       this.started = true
       this.broadcast()
@@ -136,7 +137,6 @@ module.exports = NodeHelper.create({
   },
 
   getPhoto: function() {
-
     var photoId = this.items[this.index].id
     const options = {
       url: "https://photoslibrary.googleapis.com/v1/mediaItems/" + photoId,
