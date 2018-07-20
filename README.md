@@ -44,7 +44,7 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
 ...
 ```
 13. Remember the id of album to show.
-14. now configurate your `config.js`
+14. now set your `config.js`
 
 
 ### Configuration
