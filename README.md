@@ -54,8 +54,10 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
   position: "top_right",
   config: {
     albumId: "<YOUR_GOOGLE_PHOTOS_ALBUM_ID>", // your album id from result of `auth_and_test.js`
-    refreshInterval: 1000*60,  // too short refreshing might cause API quota limit. Under 10sec will exhaust your quota(usually total <25000 per day).
-    scanInterval: 1000*60*60, // too many scans might cause API quota limit also. BUT DON'T EXCEED 1 HOUR. (Over 1 Hour will be changed 55 min automatically)
+    refreshInterval: 1000*60,  
+    scanInterval: 1000*60*10, // too many scans might cause API quota limit also.
+    //note(2018-07-29). It is some weird. API documents said temporal image url would live for 1 hour, but it might be broken shorter. So, per 10 min scanning could prevent dead url.
+
     sort: "time", //'time', 'reverse', 'random'
     showWidth: "800px", // how large the photo will be shown as. (e.g;'100%' for fullscreen)
     showHeight: "600px",
@@ -72,6 +74,10 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
 
 
 ### Update
+#### [2018-07-29]
+- Fix the issue of dead url.
+(It seems also the problem of API. documents said temporal url would live for 1 hour, but it might be broken shorter.)
+
 #### [2018-07-22]
-- Fix the issue of photos shared from others. 
+- Fix the issue of photos shared from others.
 (I think it was the problem of API, because `mediaItem:search` can access shared photos but `mediaItem/Id` cannot. That is out of sense.)

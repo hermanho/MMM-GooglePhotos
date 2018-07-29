@@ -26,8 +26,8 @@ module.exports = NodeHelper.create({
   },
 
   initializeAfterLoading: function (config) {
-    if (config.scanInterval > 1000 * 60 * 60) {
-      config.scanInterval = 1000 * 60 * 55 // By using baseUrl from :search directly, there needs to maintain scanInterval under 1hour because risk of expiration of baseUrl.
+    if (config.scanInterval > 1000 * 60 * 10) {
+      config.scanInterval = 1000 * 60 * 10 // By using baseUrl from :search directly, there needs to maintain scanInterval under 1hour because risk of expiration of baseUrl.
     }
     this.config = config
     console.log(this.name + " initialized after loading.")
@@ -194,6 +194,7 @@ module.exports = NodeHelper.create({
       "url":photo.baseUrl + "=w" + this.config.originalWidthPx + "-h" + this.config.originalHeightPx,
       "time": Date.parse(photo.creationTime),
     }
+    //console.log("image", photo.baseUrl)
     this.sendSocketNotification("NEW_IMAGE", payload)
   },
 
