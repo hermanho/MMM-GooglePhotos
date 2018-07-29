@@ -191,7 +191,7 @@ module.exports = NodeHelper.create({
 
     var payload = {
       "id":photo.id,
-      "url":photo.baseUrl + "=w" + this.config.originalHeightPx + "-h" + this.config.originalHeightPx,
+      "url":photo.baseUrl + "=w" + this.config.originalWidthPx + "-h" + this.config.originalHeightPx,
       "time": Date.parse(photo.creationTime),
     }
     this.sendSocketNotification("NEW_IMAGE", payload)
