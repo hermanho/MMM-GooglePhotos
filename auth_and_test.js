@@ -19,7 +19,7 @@ auth.on('ready', (client) => {
   console.log("auth_and_test started.")
   var token = client.credentials.access_token
   function getAlbum(client, pageSize=50, pageToken="") {
-    var url = 'https://photoslibrary.googleapis.com/v1/sharedAlbums'
+    var url = 'https://photoslibrary.googleapis.com/v1/albums'
     url = url + "?pageSize=" + pageSize + "&pageToken=" + pageToken
     request.get(
       url,
@@ -34,8 +34,8 @@ auth.on('ready', (client) => {
           process.exit(1);
         }
         var found = 0
-        for (var i in body.sharedAlbums) {
-          var album = body.sharedAlbums[i]
+        for (var i in body.albums) {
+          var album = body.albums[i]
           console.log (album.title, " : ", album.id)
           found++;
         }
