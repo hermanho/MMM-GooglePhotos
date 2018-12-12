@@ -205,11 +205,7 @@ module.exports = NodeHelper.create({
 
 
   broadcast: function() {
-    var auth = new Auth(this.authConfig)
-    auth.on('ready', (client) => {
-      this.accessToken = client.credentials.access_token
-      this.getPhoto()
-    })
+    this.getPhoto()
     var timer = setTimeout(()=>{
       this.broadcast()
     }, this.config.refreshInterval)
