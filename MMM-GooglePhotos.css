@@ -1,9 +1,8 @@
-
 #GPHOTO {
   background-size:cover; /* or use 'contain' for your purpose */
   background-repeat:no-repeat;
   background-position:center;
-  transition: background-image 2s linear 1s;
+  transition: opacity 1s ease 1s;
 }
 
 .region.fullscreen #GPHOTO {
@@ -11,6 +10,7 @@
   top:0;
   left:0;
 }
+
 
 /*
 .region > .container {

@@ -93,7 +93,9 @@ module.exports = NodeHelper.create({
             var item = {
               "id": mediaItems[i].id,
               "creationTime": Date.parse(mediaItems[i].mediaMetadata.creationTime),
-              "baseUrl": mediaItems[i].baseUrl
+              "baseUrl": mediaItems[i].baseUrl,
+              "width": mediaItems[i].mediaMetadata.width,
+              "height": mediaItems[i].mediaMetadata.height
             }
             self.tempItems.push(item)
           }
@@ -193,6 +195,8 @@ module.exports = NodeHelper.create({
       "id":photo.id,
       "url":photo.baseUrl + "=w" + this.config.originalWidthPx + "-h" + this.config.originalHeightPx,
       "time": Date.parse(photo.creationTime),
+      "width": photo.width,
+      "height": photo.height
     }
     //console.log("image", photo.baseUrl)
     this.sendSocketNotification("NEW_IMAGE", payload)
