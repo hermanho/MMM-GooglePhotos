@@ -75,6 +75,9 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
 
 
 ### Update
+#### [2018-12-29]
+- Configure one or more albumIds
+
 #### [2018-07-29]
 - Fix the issue of dead url.
 (It seems also the problem of API. documents said temporal url would live for 1 hour, but it might be broken shorter.)
