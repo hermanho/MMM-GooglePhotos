@@ -72,7 +72,6 @@ module.exports = NodeHelper.create({
   },
 
   getPhotosByAlbumId: function(albumId) {
-    console.log("AlbumId:", albumId)
     const options = {
       url: "https://photoslibrary.googleapis.com/v1/mediaItems:search",
       method: "POST",
