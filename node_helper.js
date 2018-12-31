@@ -61,12 +61,22 @@ module.exports = NodeHelper.create({
     }
   },
 
-  getPhotos: function() {
+  getPhotos: function(){
+    var albums = this.config.albumId
+    if (!(albums instanceof Array)) {
+      albums = [this.config.albumId]
+    }
+    for (var i in albums) {
+      this.getPhotosByAlbumId(albums[i])
+    }
+  },
+
+  getPhotosByAlbumId: function(albumId) {
     const options = {
       url: "https://photoslibrary.googleapis.com/v1/mediaItems:search",
       method: "POST",
       form: {
-        'albumId': this.config.albumId,
+        'albumId': albumId,
         'pageSize': 50,
         'pageToken': "",
       },
