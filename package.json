@@ -11,7 +11,7 @@
   "dependencies": {
     "google-auth-library": "^1.6.1",
     "grpc": "^1.13.0",
-    "opn": "^6.0.0"
+    "open": "^6.3.0"
   },
   "devDependencies": {
     "electron-rebuild": "^1.8.2"
