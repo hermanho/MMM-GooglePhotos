@@ -77,7 +77,7 @@ module.exports = NodeHelper.create({
       method: "POST",
       form: {
         'albumId': albumId,
-        'pageSize': 50,
+        'pageSize': 100,
         'pageToken': "",
       },
       json: true,
