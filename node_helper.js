@@ -147,6 +147,7 @@ module.exports = NodeHelper.create({
     console.log("[GPHOTO] Scan finished :", this.tempItems.length)
     //this.sendSocketNotification("IMAGE_LIST", this.items)
     this.items = this.tempItems
+    this.tempItems= [];
     if (this.started == false) {
       this.started = true
       this.broadcast()
