@@ -11,6 +11,7 @@ Module.register("MMM-GooglePhotos", {
     showHeight: "600px",
     originalWidthPx: 800, // original size of loaded image. (related with image quality)
     originalHeightPx: 600,
+    opacity: 1, // resulting image opacity. Consider reducing this value if you are using this module as a background picture frame
     mode: "cover", // "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
   },
 
@@ -40,7 +41,7 @@ Module.register("MMM-GooglePhotos", {
     setTimeout(()=>{
       image.style.backgroundImage = "unset"
       image.style.backgroundImage = "url('" + url + "')"
-      image.style.opacity = 1
+      image.style.opacity = this.config.opacity;
       if (this.config.mode == "hybrid") {
         var rect = image.getBoundingClientRect()
         var rr = ((rect.width / rect.height) > 1) ? "h" : "v"

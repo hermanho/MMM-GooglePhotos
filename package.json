@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "google-auth-library": "^1.6.1",
-    "grpc": "^1.13.0",
     "open": "^6.3.0"
   },
   "devDependencies": {

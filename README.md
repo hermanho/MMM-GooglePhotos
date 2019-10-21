@@ -63,6 +63,7 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
     showHeight: "600px",
     originalWidthPx: 800, // original size of loaded image. (related with image quality)
     originalHeightPx: 600, // Bigger size gives you better quality, but can give you network burden.
+    opacity: 1, // target "opacity" property (https://www.w3schools.com/cssref/css3_pr_opacity.asp)
     mode: "hybrid", // "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
     //ADDED. "hybrid" : if you set as "hybrid" it will change "cover" and "contain" automatically by aspect ratio.
   }
