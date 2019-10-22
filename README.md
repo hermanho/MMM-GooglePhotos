@@ -76,6 +76,12 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
 
 
 ### Update
+#### [2019-10-22]
+- Add `opacity`
+- Fix : multi-album issue.
+Thanks to @philcali 
+
+
 #### [2018-12-29]
 - Configure one or more albumIds
 
