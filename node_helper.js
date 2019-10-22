@@ -40,6 +40,7 @@ module.exports = NodeHelper.create({
     this.scanTimer = setInterval(()=>{
       this.scanPhotos()
     },this.config.scanInterval)
+    this.broadcastTimer = setInterval(() => this.broadcast(), this.config.refreshInterval);
   },
 
   scanPhotos: function() {
@@ -66,12 +67,18 @@ module.exports = NodeHelper.create({
     if (!(albums instanceof Array)) {
       albums = [this.config.albumId]
     }
+    var countDown = albums.length;
     for (var i in albums) {
-      this.getPhotosByAlbumId(albums[i])
+      this.getPhotosByAlbumId(albums[i], () => {
+        // Count down latch for asynchronous gets
+        if (--countDown == 0) {
+          this.finishedScan();
+        }
+      });
     }
   },
 
-  getPhotosByAlbumId: function(albumId) {
+  getPhotosByAlbumId: function(albumId, callback) {
     const options = {
       url: "https://photoslibrary.googleapis.com/v1/mediaItems:search",
       method: "POST",
@@ -114,7 +121,7 @@ module.exports = NodeHelper.create({
           options.form.pageToken = body.nextPageToken
           getItems(options)
         } else {
-          self.finishedScan()
+	  callback();
         }
       })
     }
@@ -213,12 +220,7 @@ module.exports = NodeHelper.create({
     this.sendSocketNotification("NEW_IMAGE", payload)
   },
 
-
-
   broadcast: function() {
     this.getPhoto()
-    var timer = setTimeout(()=>{
-      this.broadcast()
-    }, this.config.refreshInterval)
   }
 })
