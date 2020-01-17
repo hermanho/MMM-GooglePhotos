@@ -86,19 +86,21 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
   module: "MMM-GooglePhotos",
   position: "top_right",
   config: {
-    albumId: ["YOUR_GOOGLE_PHOTOS_ALBUM_ID","NEXT_GOOGLE_PHOTOS_ALBUM_ID"], // your album id(s) from result of `auth_and_test.js`
-    refreshInterval: 1000*60,  
-    scanInterval: 1000*60*10, // too many scans might cause API quota limit also.
+    
+    albumId: ["ALBUM_ID1", "ALBUM_ID2"], 	// your album id(s) from result of `auth_and_test.js`
+    refreshInterval: 1000*60,							// Number of milliseconds before showing a different photo
+    scanInterval: 1000*60*10,							// too many scans might cause API quota limit also
     //note(2018-07-29). It is some weird. API documents said temporal image url would live for 1 hour, but it might be broken shorter. So, per 10 min scanning could prevent dead url.
 
-    sort: "time", //'time', 'reverse', 'random'
-    showWidth: "800px", // how large the photo will be shown as. (e.g;'100%' for fullscreen)
+    sort: "time", 												//'time', 'reverse', 'random'
+    showWidth: "800px", 									// how large the photo will be shown as. (e.g;'100%' for fullscreen)
     showHeight: "600px",
-    originalWidthPx: 800, // original size of loaded image. (related with image quality)
-    originalHeightPx: 600, // Bigger size gives you better quality, but can give you network burden.
-    opacity: 1, // target "opacity" property (https://www.w3schools.com/cssref/css3_pr_opacity.asp)
-    mode: "hybrid", // "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
-    //ADDED. "hybrid" : if you set as "hybrid" it will change "cover" and "contain" automatically by aspect ratio.
+    originalWidthPx: 800, 								// original size of loaded image. (related with image quality)
+    originalHeightPx: 600, 								// Bigger size gives you better quality, but can give you network burden
+    opacity: 1, 													// target "opacity" property (https://www.w3schools.com/cssref/css3_pr_opacity.asp)
+    mode: "hybrid", 											// "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
+																					// "hybrid": will change "cover" and "contain" automatically based on aspect ratio
+    showDateLabel: true,									// If True, shows a label of how long ago the photo was taken (e.g. 2 years ago, 7 days ago, etc...)
   }
 },
 ```

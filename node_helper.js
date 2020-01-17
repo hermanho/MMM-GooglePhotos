@@ -25,7 +25,7 @@ module.exports = NodeHelper.create({
     //this.auth = null
   },
 
-  initializeAfterLoading: function (config) {
+  initializeAfterLoading: function(config) {
     if (config.scanInterval > 1000 * 60 * 10) {
       config.scanInterval = 1000 * 60 * 10 // By using baseUrl from :search directly, there needs to maintain scanInterval under 1hour because risk of expiration of baseUrl.
     }
@@ -53,7 +53,7 @@ module.exports = NodeHelper.create({
 
   },
 
-  socketNotificationReceived: function (notification, payload) {
+  socketNotificationReceived: function(notification, payload) {
     switch(notification) {
       case 'INIT':
         this.initializeAfterLoading(payload)
@@ -194,6 +194,33 @@ module.exports = NodeHelper.create({
     })
   },
 */
+	timeSince: function(date) {
+		// Credit: https://stackoverflow.com/users/242897/sky-sanders
+		var seconds = Math.floor((new Date() - date) / 1000);
+		var interval = Math.floor(seconds / 31536000);
+
+		if (interval > 1) {
+			return interval + " years ago";
+		}
+		interval = Math.floor(seconds / 2592000);
+		if (interval > 1) {
+			return interval + " months ago";
+		}
+		interval = Math.floor(seconds / 86400);
+		if (interval > 1) {
+			return interval + " days ago";
+		}
+		interval = Math.floor(seconds / 3600);
+		if (interval > 1) {
+			return interval + " hours ago";
+		}
+		interval = Math.floor(seconds / 60);
+		if (interval > 1) {
+			return interval + " minutes ago";
+		}
+		return Math.floor(seconds) + " seconds ago";
+	},
+
   getPhoto: function() {
     if (this.items.length <= 0) {
       console.log("There is no scanned photo currently.")
@@ -212,7 +239,7 @@ module.exports = NodeHelper.create({
     var payload = {
       "id":photo.id,
       "url":photo.baseUrl + "=w" + this.config.originalWidthPx + "-h" + this.config.originalHeightPx,
-      "time": Date.parse(photo.creationTime),
+      "time": this.timeSince(photo.creationTime),
       "width": photo.width,
       "height": photo.height
     }
