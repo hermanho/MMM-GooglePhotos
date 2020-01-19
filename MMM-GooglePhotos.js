@@ -31,17 +31,28 @@ Module.register("MMM-GooglePhotos", {
     wrapper.style.minWidth = this.config.showWidth
     wrapper.style.minHeight = this.config.showHeight
     wrapper.style.backgroundSize = this.config.mode
+
+    if (this.config.showDateLabel === true) {
+      var creationDate = document.createElement("span")
+      creationDate.id = "GPDATE"
+      creationDate.style.position = "absolute"
+      creationDate.style.bottom = "40px"
+      creationDate.style.left = "40px"
+      wrapper.appendChild(creationDate);
+    }
+
     return wrapper
   },
 
   showImage: function(payload) {
     var url = payload.url
     var image = document.getElementById("GPHOTO")
+
     image.style.opacity = 0
     setTimeout(()=>{
       image.style.backgroundImage = "unset"
       image.style.backgroundImage = "url('" + url + "')"
-      image.style.opacity = this.config.opacity;
+      image.style.opacity = this.config.opacity
       if (this.config.mode == "hybrid") {
         var rect = image.getBoundingClientRect()
         var rr = ((rect.width / rect.height) > 1) ? "h" : "v"
@@ -49,6 +60,10 @@ Module.register("MMM-GooglePhotos", {
         image.style.backgroundSize = (rr == ir) ? "cover" : "contain"
       } else {
         image.style.backgroundSize = this.config.mode
+      }
+      if (this.config.showDateLabel === true) {
+        var creationDate = document.getElementById("GPDATE")
+        creationDate.innerText = payload.time
       }
     }, 2000)
 
