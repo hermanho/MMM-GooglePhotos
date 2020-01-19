@@ -198,9 +198,10 @@ module.exports = NodeHelper.create({
 		// Credit: https://stackoverflow.com/users/242897/sky-sanders
 		var seconds = Math.floor((new Date() - date) / 1000);
 		var interval = Math.floor(seconds / 31536000);
+		var aDate = new Date(date);
 
 		if (interval > 1) {
-			return interval + " years ago";
+			return aDate.toLocaleString('en', { month: "long" }) + ", " + interval + " years ago";
 		}
 		interval = Math.floor(seconds / 2592000);
 		if (interval > 1) {
@@ -208,7 +209,7 @@ module.exports = NodeHelper.create({
 		}
 		interval = Math.floor(seconds / 86400);
 		if (interval > 1) {
-			return interval + " days ago";
+			return aDate.toLocaleString('en', { weekday: "long" }) + ", " + interval + " days ago";
 		}
 		interval = Math.floor(seconds / 3600);
 		if (interval > 1) {

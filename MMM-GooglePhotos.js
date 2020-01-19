@@ -1,4 +1,5 @@
 //
+//
 // MMM-GooglePhotos
 //
 Module.register("MMM-GooglePhotos", {
@@ -35,9 +36,7 @@ Module.register("MMM-GooglePhotos", {
     if (this.config.showDateLabel === true) {
       var creationDate = document.createElement("span")
       creationDate.id = "GPDATE"
-      creationDate.style.position = "absolute"
-      creationDate.style.bottom = "40px"
-      creationDate.style.left = "40px"
+      creationDate.className = "datelabel"
       wrapper.appendChild(creationDate);
     }
 
