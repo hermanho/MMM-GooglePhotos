@@ -25,6 +25,7 @@ npm install --save-dev electron-rebuild
 1. Go to [Google API Console](https://console.developers.google.com/)
 2. From the menu bar, select a project or create a new project.
 3. To open the Google API Library, from the Navigation menu, select `APIs & Services > Library`.
+	DOn't forget to enble the Google API Services.
 4. Search for "Google Photos Library API". Select the correct result and click Enable. (You may need to enable "Google Plus" also.)
 5. Then, from the menu, select `APIs & Services > Credentials`.
 6. On the Credentials page, click `Create Credentials > OAuth client ID`.
