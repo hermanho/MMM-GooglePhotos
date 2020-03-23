@@ -4,83 +4,152 @@
 //
 Module.register("MMM-GooglePhotos", {
   defaults: {
-    albumId: "", // your album id from result of `auth_and_test.js`
-    refreshInterval: 1000*60,  // too short refreshing might cause API quota limit. Under 10sec will exhaust your quota(usually total <25000 per day).
-    scanInterval: 1000*60*60, // too many scans might cause API quota limit also.
-    sort: "time", //'time', 'reverse', 'random'
-    showWidth: "800px", // how large the photo will be shown as.
-    showHeight: "600px",
-    originalWidthPx: 800, // original size of loaded image. (related with image quality)
-    originalHeightPx: 600,
-    opacity: 1, // resulting image opacity. Consider reducing this value if you are using this module as a background picture frame
-    mode: "cover", // "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
+    albums: [],
+    updateInterval: 1000 * 60, // minimum 10 seconds.
+    sort: "new", // "old", "random"
+    uploadAlbum: null, // Only for created by `create_uploadable_album.js`
+    condition: {
+      fromDate: null, // Or "2018-03", RFC ... format available
+      toDate: null, // Or "2019-12-25",
+      minWidth: null, // Or 400
+      maxWidth: null, // Or 8000
+      minHeight: null, // Or 400
+      maxHeight: null, // Or 8000
+      minWHRatio: null,
+      maxWHRatio: null,
+      // WHRatio = Width/Height ratio ( ==1 : Squared Photo,   < 1 : Portraited Photo, > 1 : Landscaped Photo)
+    },
+    showWidth: 1080, // These values will be used for quality of downloaded photos to show. real size to show in your MagicMirror region is recommended.
+    showHeight: 1920,
+    timeFormat: "YYYY/MM/DD HH:mm"
   },
 
-  getStyles: function () {
+  getStyles: function() {
     return ["MMM-GooglePhotos.css"]
   },
 
   start: function() {
+    this.uploadableAlbum = null
+    this.albums = null
+    this.scanned = []
+    this.updateTimer = null
+    this.index = 0
+    this.firstScan = true
+    if (this.config.updateInterval < 1000 * 10) this.config.updateInterval = 1000 * 10
+    this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition)
     this.sendSocketNotification("INIT", this.config)
   },
+
+  socketNotificationReceived: function(noti, payload) {
+    if (noti == "UPLOADABLE_ALBUM") {
+      this.uploadableAlbum = payload
+    }
+    if (noti == "INITIALIZED") {
+      this.albums = payload
+    }
+    if (noti == "SCANNED") {
+      if (payload && Array.isArray(payload) && payload.length > 0)
+      this.scanned = payload
+      if (this.firstScan) {
+        this.firstScan == false
+        this.updatePhotos()
+      }
+
+    }
+  },
+
+  notificationReceived: function(noti, payload, sender) {
+    if (noti == "GPHOTO_NEXT") {
+      this.updatePhotos()
+    }
+    if (noti == "GPHOTO_PREVIOUS") {
+      this.updatePhotos(-2)
+    }
+  },
+
+  updatePhotos: function(dir=0) {
+    clearTimeout(this.updateTimer)
+    if (this.scanned.length == 0) return
+    this.index = this.index + dir
+    if (this.index < 0) this.index = 0
+    if (this.index >= this.scanned.length) {
+      this.index = 0
+      if (this.config.sort == "random") {
+        for (var i = this.scanned.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1))
+          var t = this.scanned[i]
+          this.scanned[i] = this.scanned[j]
+          this.scanned[j] = t
+        }
+      }
+    }
+    var target = this.scanned[this.index]
+    var url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`
+    this.ready(url, target)
+    this.index++
+    this.updateTimer = setTimeout(()=>{
+      this.updatePhotos()
+    }, this.config.updateInterval)
+  },
+
+  ready: function(url, target) {
+    var hidden = document.createElement("img")
+    hidden.onload = () => {
+      var back = document.getElementById("GPHOTO_BACK")
+      var current = document.getElementById("GPHOTO_CURRENT")
+      //current.classList.remove("animated")
+      var dom = document.getElementById("GPHOTO")
+      back.style.backgroundImage = `url(${url})`
+      current.style.backgroundImage = `url(${url})`
+      current.classList.add("animated")
+      var info = document.getElementById("GPHOTO_INFO")
+      var album = this.albums.find((a)=>{
+        if (a.id == target._albumId) return true
+        return false
+      })
+      info.innerHTML = ""
+      var albumCover = document.createElement("div")
+      albumCover.classList.add("albumCover")
+      albumCover.style.backgroundImage = `url(modules/MMM-GooglePhotos/cache/${album.id})`
+      var albumTitle = document.createElement("div")
+      albumTitle.classList.add("albumTitle")
+      albumTitle.innerHTML = album.title
+      var photoTime = document.createElement("div")
+      photoTime.classList.add("photoTime")
+      photoTime.innerHTML = moment(target.mediaMetadata.creationTime).format(this.config.timeFormat)
+      var infoText = document.createElement("div")
+      infoText.classList.add("infoText")
+
+      info.appendChild(albumCover)
+      infoText.appendChild(albumTitle)
+      infoText.appendChild(photoTime)
+      info.appendChild(infoText)
+    }
+    hidden.src = url
+  },
+
 
   getDom: function() {
     var wrapper = document.createElement("div")
     wrapper.id = "GPHOTO"
-    wrapper.style.width = this.config.showWidth
-    wrapper.style.height = this.config.showHeight
-    wrapper.style.minWidth = this.config.showWidth
-    wrapper.style.minHeight = this.config.showHeight
-    wrapper.style.backgroundSize = this.config.mode
-
-    if (this.config.showDateLabel === true) {
-      var creationDate = document.createElement("span")
-      creationDate.id = "GPDATE"
-      creationDate.className = "datelabel"
-      wrapper.appendChild(creationDate);
+    var back = document.createElement("div")
+    back.id = "GPHOTO_BACK"
+    var current = document.createElement("div")
+    current.id = "GPHOTO_CURRENT"
+    if (this.data.position.search("fullscreen") == -1) {
+      if (this.config.showWidth) wrapper.style.width = this.config.showWidth + "px"
+      if (this.config.showHeight) wrapper.style.height = this.config.showHeight + "px"
     }
-
+    current.addEventListener('animationend', ()=>{
+      current.classList.remove("animated")
+    })
+    var info = document.createElement("div")
+    info.id = "GPHOTO_INFO"
+    info.innerHTML = "Loading..."
+    wrapper.appendChild(back)
+    wrapper.appendChild(current)
+    wrapper.appendChild(info)
+    console.log("updated!")
     return wrapper
   },
-
-  showImage: function(payload) {
-    var url = payload.url
-    var image = document.getElementById("GPHOTO")
-
-    image.style.opacity = 0
-    setTimeout(()=>{
-      image.style.backgroundImage = "unset"
-      image.style.backgroundImage = "url('" + url + "')"
-      image.style.opacity = this.config.opacity
-      if (this.config.mode == "hybrid") {
-        var rect = image.getBoundingClientRect()
-        var rr = ((rect.width / rect.height) > 1) ? "h" : "v"
-        var ir = ((payload.width / payload.height) > 1) ? "h" : "v"
-        image.style.backgroundSize = (rr == ir) ? "cover" : "contain"
-      } else {
-        image.style.backgroundSize = this.config.mode
-      }
-      if (this.config.showDateLabel === true) {
-        var creationDate = document.getElementById("GPDATE")
-        creationDate.innerText = payload.time
-      }
-    }, 2000)
-
-  },
-
-  socketNotificationReceived: function(notification, payload) {
-    switch(notification) {
-      case "NEW_IMAGE":
-        this.showImage(payload)
-        break
-    }
-  },
-
-  notificationReceived: function(sender, notification, payload) {
-    switch(notification) {
-      case "DOM_OBJECTS_CREATED":
-      //  this.initialize()
-        break
-    }
-  }
 })

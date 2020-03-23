@@ -1,0 +1,333 @@
+'use strict';
+
+const EventEmitter = require('events')
+const util = require('util')
+const opn = require('open')
+const readline = require('readline')
+const fs = require('fs')
+const path = require('path')
+const mkdirp = require('mkdirp')
+const {OAuth2Client} = require('google-auth-library')
+const Axios = require('Axios')
+
+function Auth(config, debug=false) {
+  const log = (debug) ? (...args)=>{console.log("[GPHOTOS:AUTH]", ...args)} : ()=>{}
+  if (config === undefined) config = {}
+  if (config.keyFilePath === undefined) {
+    throw new Error('Missing "keyFilePath" from config (This should be where your Credential file is)')
+  }
+  if (config.savedTokensPath === undefined) {
+    throw new Error('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)')
+    return;
+  }
+  var creds = path.resolve(__dirname, config.keyFilePath)
+  if (!fs.existsSync(creds)) {
+    throw new Error('Missing Credentials.')
+    return
+  }
+  const key = require(config.keyFilePath).installed
+  const oauthClient = new OAuth2Client(key.client_id, key.client_secret, key.redirect_uris[0])
+  let tokens
+  const saveTokens = (first = false) => {
+    oauthClient.setCredentials(tokens)
+    var expired = false
+    var now = Date.now()
+    if (tokens.expiry_date < Date.now()) {
+      expired = true
+      log("Token is expired.")
+    }
+    if (expired || first) {
+      oauthClient.refreshAccessToken().then((tk)=>{
+        tokens = tk.credentials
+        var tp = path.resolve(__dirname, config.savedTokensPath)
+        mkdirp(path.dirname(tp), () => {
+          fs.writeFileSync(tp, JSON.stringify(tokens))
+          log("Token is refreshed.")
+          this.emit('ready', oauthClient)
+        })
+      })
+    } else {
+      log("Token is alive.")
+      this.emit('ready', oauthClient)
+    }
+  }
+
+  const getTokens = () => {
+    const url = oauthClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: [config.scope],
+    })
+    log('Opening OAuth URL.\n\n' + url + '\n\nReturn here with your code.')
+    opn(url).catch(() => {
+      log('Failed to automatically open the URL. Copy/paste this in your browser:\n', url)
+    })
+    if (typeof config.tokenInput === 'function') {
+      config.tokenInput(processTokens);
+      return;
+    }
+    const reader = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      terminal: false,
+    })
+    reader.question('> Paste your code: ', processTokens)
+  }
+  const processTokens = (oauthCode) => {
+    if (!oauthCode) process.exit(-1)
+    oauthClient.getToken(oauthCode, (error, tkns) => {
+      if (error) throw new Error('Error getting tokens:', error)
+      tokens = tkns
+      saveTokens(true)
+    })
+  }
+  process.nextTick(() => {
+    if (config.savedTokensPath) {
+      try {
+        var file = path.resolve(__dirname, config.savedTokensPath)
+        const tokensFile = fs.readFileSync(file)
+        tokens = JSON.parse(tokensFile)
+      } catch(error) {
+        getTokens()
+      } finally {
+        if (tokens !== undefined) saveTokens()
+      }
+    }
+  })
+  return this
+}
+util.inherits(Auth, EventEmitter);
+
+
+
+class GPhotos {
+  constructor(options) {
+    this.debug = false
+    if (!options.hasOwnProperty("authOption")) {
+      throw new Error("Invalid auth information.")
+      return false
+    }
+    this.options = options
+    this.debug = (options.debug) ? options.debug : this.debug
+    this.albums = {
+      album: [],
+      shared: [],
+    }
+  }
+
+  log(...args) {
+    if (this.debug) console.log("[GPHOTOS:CORE]", ...args)
+  }
+
+  onAuthReady(job=()=>{}) {
+    var auth = null
+    try {
+      auth = new Auth(this.options.authOption, this.debug)
+    } catch (e) {
+      this.log(e.toString())
+      throw e
+    }
+    auth.on("ready", (client)=>{
+      job(client)
+    })
+  }
+
+  generateToken(success=()=>{}, fail=()=>{}) {
+    this.onAuthReady((client)=>{
+      const isTokenFileExist = () => {
+        var fp = path.resolve(__dirname, this.options.authOption.savedTokensPath)
+        if (fs.existsSync(fp)) return true
+        return false
+      }
+      if (isTokenFileExist()) success()
+      fail()
+    })
+  }
+
+  request (token, endPoint="", method="get", params=null, data=null) {
+    return new Promise((resolve)=>{
+      try {
+        var url = endPoint
+        var option = {
+          method: method,
+          url: url,
+          baseURL: 'https://photoslibrary.googleapis.com/v1/',
+          headers: {
+            Authorization: 'Bearer ' + token
+          },
+        }
+        if (params) option.params = params
+        if (data) option.data = data
+        Axios(option).then((ret)=>{
+          resolve(ret)
+        }).catch((e)=>{
+          this.log(e.toString())
+          throw e
+        })
+      } catch (error) {
+        this.log(error.toString())
+        throw error
+      }
+    })
+  }
+
+  getAlbums() {
+    return new Promise((resolve)=>{
+      const step = async () =>{
+        try {
+          var albums = await this.getAlbumType("albums")
+          var shared = await this.getAlbumType("sharedAlbums")
+          for (var s of shared) {
+            var isExist = albums.find((a)=>{
+              if (a.id === s.id) return true
+              return false
+            })
+            if (!isExist) albums.push(s)
+          }
+          resolve(albums)
+        } catch (e) {
+          throw e
+        }
+      }
+      step()
+    })
+  }
+
+
+  getAlbumType(type="albums") {
+    if (type !== "albums" && type !== "sharedAlbums") throw new Error("Invalid parameter for .getAlbumType()", type)
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        var list = []
+        var found = 0
+        const getAlbum = async (pageSize=50, pageToken="") => {
+          var params = {
+            pageSize: pageSize,
+            pageToken: pageToken,
+          }
+          try {
+            var response = await this.request(token, type, "get", params, null)
+            var body = response.data
+            if (body[type] && Array.isArray(body[type])) {
+              found += body[type].length
+              list = list.concat(body[type])
+            }
+            if (body.nextPageToken) {
+              getAlbum(pageSize, body.nextPageToken)
+            } else {
+              this.albums[type] = list
+              resolve(list)
+            }
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        getAlbum()
+      })
+    })
+  }
+
+  getImageFromAlbum(albumId, isValid=null, maxNum=99999) {
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        var list = []
+        const getImage = async (pageSize=50, pageToken="") => {
+          try {
+            var data = {
+              "albumId": albumId,
+              "pageSize": pageSize,
+              "pageToken": pageToken,
+            }
+            var response = await this.request(token, 'mediaItems:search', 'post', null, data)
+            if (response.data.hasOwnProperty("mediaItems") && Array.isArray(response.data.mediaItems)) {
+              for (var item of response.data.mediaItems) {
+                if (list.length < maxNum) {
+                  item._albumId = albumId
+                  if (typeof isValid == "function") {
+                    if (isValid(item)) list.push(item)
+                  } else {
+                    list.push(item)
+                  }
+                }
+              }
+              if (list.length >= maxNum) {
+                resolve(list) // full with maxNum
+              } else {
+                if (response.data.nextPageToken) {
+                  getImage(50, response.data.nextPageToken)
+                } else {
+                  resolve(list) // all found but lesser than maxNum
+                }
+              }
+            } else {
+              resolve(list) // empty
+            }
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        getImage()
+      })
+    })
+  }
+
+  createAlbum(albumName) {
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        const create = async () => {
+          try {
+            var created = await this.request(token, 'albums', 'post', null, {
+              album: {
+                title: albumName
+              }
+            })
+            resolve(created.data)
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        create()
+      })
+    })
+  }
+
+  shareAlbum(albumId) {
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        const create = async () => {
+          try {
+            var shareInfo = await this.request(
+              token,
+              'albums/' + albumId + ":share",
+              'post',
+              null,
+              {
+                sharedAlbumOptions: {
+                  isCollaborative: true,
+                  isCommentable: true,
+                }
+              }
+            )
+            resolve(shareInfo.data)
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        create()
+      })
+    })
+  }
+
+}
+
+
+
+
+module.exports = GPhotos

@@ -1,254 +1,275 @@
-
-//
-// Module : MMM-Hotword
-//
-
 'use strict'
 
-const path = require("path")
-const request = require('request')
-const Auth = require('./auth.js')
+const fs = require('fs')
+const path = require('path')
+const https = require('https')
+const moment = require('moment')
+const GP = require("./GPhotos.js")
+const authOption = require("./google_auth.json")
 
+
+var GPhotos = null
 
 var NodeHelper = require("node_helper")
 
 module.exports = NodeHelper.create({
   start: function() {
-    console.log(this.name + " started")
+    this.scanInterval = 1000 * 60 * 55 // fixed.
     this.config = {}
-    this.items = []
-    this.tempItems = []
-    this.accessToken = ""
-    this.authConfig = {}
-    this.started = false
-    this.index = 0
-    //this.auth = null
+    this.scanTimer = null
+    this.albums = []
+    this.photos = []
+    this.queue = null
   },
 
-  initializeAfterLoading: function(config) {
-    if (config.scanInterval > 1000 * 60 * 10) {
-      config.scanInterval = 1000 * 60 * 10 // By using baseUrl from :search directly, there needs to maintain scanInterval under 1hour because risk of expiration of baseUrl.
-    }
-    this.config = config
-    console.log(this.name + " initialized after loading.")
-    this.authConfig = {
-      keyFilePath : path.resolve(__dirname, "credentials.json"),
-      savedTokensPath : path.resolve(__dirname, "token.json"),
-      scope: "https://www.googleapis.com/auth/photoslibrary.readonly"
-    }
-    this.scanPhotos()
-    this.scanTimer = setInterval(()=>{
-      this.scanPhotos()
-    },this.config.scanInterval)
-    this.broadcastTimer = setInterval(() => this.broadcast(), this.config.refreshInterval);
-  },
-
-  scanPhotos: function() {
-    this.tempItems = []
-    var auth = new Auth(this.authConfig)
-    auth.on('ready', (client) => {
-      this.accessToken = client.credentials.access_token
-      this.getPhotos()
-    })
-
+  cachePath: function (t = "") {
+    return path.resolve(__dirname, "cache", t)
   },
 
   socketNotificationReceived: function(notification, payload) {
     switch(notification) {
       case 'INIT':
         this.initializeAfterLoading(payload)
-        this.sendSocketNotification('INITIALIZED')
         break
     }
   },
 
-  getPhotos: function(){
-    var albums = this.config.albumId
-    if (!(albums instanceof Array)) {
-      albums = [this.config.albumId]
-    }
-    var countDown = albums.length;
-    for (var i in albums) {
-      this.getPhotosByAlbumId(albums[i], () => {
-        // Count down latch for asynchronous gets
-        if (--countDown == 0) {
-          this.finishedScan();
-        }
-      });
-    }
+  log: function(...args) {
+    if (this.debug) console.log("[GPHOTOS]", ...args)
   },
 
-  getPhotosByAlbumId: function(albumId, callback) {
-    const options = {
-      url: "https://photoslibrary.googleapis.com/v1/mediaItems:search",
-      method: "POST",
-      form: {
-        'albumId': albumId,
-        'pageSize': 100,
-        'pageToken': "",
-      },
-      json: true,
-      auth: {
-        "bearer": this.accessToken
+  initializeAfterLoading: function(config) {
+    this.config = config
+    this.debug = (config.debug) ? config.debug : false
+    if (!this.config.scanInterval || this.config.scanInterval < 1000 * 60 * 10) this.config.scanInterval = 1000 * 60 * 10
+    GPhotos = new GP({
+      authOption: authOption,
+      debug:this.debug
+    })
+    const step = async () => {
+      this.log("Getting album list")
+      var albums = await this.getAlbums()
+      if (config.uploadAlbum) {
+        var uploadAlbum = albums.find((a)=>{
+          return (a.title == config.uploadAlbum) ? true : false
+        })
+        if (uploadAlbum) {
+          if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
+            this.log("Confirmed Uploadable album:", config.uploadAlbum)
+            this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum)
+          } else {
+            this.log("This album is not uploadable:", config.uploadAlbum)
+          }
+        } else {
+          this.log("Can't find uploadable album :", config.uploadAlbum)
+        }
+      }
+      for (var ta of this.config.albums) {
+        var matched = albums.find((a)=>{
+          if (ta == a.title) return true
+          return false
+        })
+        if (!matched) {
+          this.log(`Can't find "${ta}" in your album list.`)
+        } else {
+          this.albums.push(matched)
+        }
+      }
+      this.log("Finish Album scanning. Properly scanned :", this.albums.length)
+      for (var a of this.albums) {
+        var url = a.coverPhotoBaseUrl + "=w160-h160-c"
+        var fpath = path.resolve(__dirname, "cache", a.id)
+        let file = fs.createWriteStream(fpath)
+        const request = https.get(url, (response)=>{
+          response.pipe(file)
+        })
+      }
+      this.log("Initialized")
+      this.sendSocketNotification("INITIALIZED", this.albums)
+      this.log("Start first scanning.")
+      this.scan()
+    }
+    step()
+  },
+
+  getAlbums: function() {
+    return new Promise((resolve)=>{
+      const step = async ()=> {
+        var r = await GPhotos.getAlbums()
+        resolve(r)
+      }
+      step()
+    })
+  },
+/*
+  downloadJob: function() {
+    if (this.photos.length < 1) return
+    var isCached = (t) => {
+      try {
+        //console.log("!T", t)
+        var path = this.cachePath(t.id)
+        console.log("path:", path)
+        if (fs.existsSync(path)) return true
+        return false
+      } catch (err) {
+        this.log(err.toString())
+        console.log(err)
+        return false
       }
     }
-    var self = this
-    function getItems(options) {
-      request.post(options, (err, res, body) => {
+    var doDownload = (idx) => {
+      var target = this.photos[idx]
+      if (isCached(target)) {
+        this.log(`'${target.id}' is already cached.`)
+        idx++
+        if (idx >= this.photos.length) {
+          this.log("No more downloadable photos.")
+          return false
+        }
+        return doDownload(idx)
+      } else {
+        var file = fs.createWriteStream(this.cachePath(target.id))
+        file.on('finish', ()=>{
+          this.lastDownloadedId = target.tid
+          this.log("Photo downloaded:", target.id)
+        })
+        const url = target.baseUrl + `=w${this.config.downloadWidth}-h${this.config.downloadHeight}`
+        const request = https.get(url, (response)=>{
+          response.pipe(file)
+        })
+        return true
+      }
+    }
+    var index = this.photos.findIndex((p)=> {
+      if (p.id == this.lastDownloadedId) return true
+      return false
+    })
+    if (index < 0) index = 0
+    console.log("Index:", index)
+    return doDownload(index)
+  },
+
+  download: function() {
+    clearTimeout(this.downloadTimer)
+    var cands = this.photos.map((p)=>{
+      return p.id
+    })
+    var cached = fs.readdirSync(this.cachePath()).sort((a, b) => {
+      return fs.statSync(this.cachePath(a)).mtime.getTime() - fs.statSync(this.cachePath(b)).mtime.getTime()
+    })
+    if (cached.length >= this.config.maxCache) {
+      var target = cached[0]
+      this.log(`Old cached photo '${target}' is destroying.`)
+      fs.unlink(this.cachePath(cached[0]), (err)=>{
         if (err) {
-          console.log("Error:", err)
-          return
-        }
-        var mediaItems = body.mediaItems
-        var found = 0
-        if (mediaItems) {
-          found = mediaItems.length
-        }
-        for (var i in mediaItems) {
-          //console.log("scanned:", mediaItems[i])
-          if ("photo" in mediaItems[i].mediaMetadata) {
-            var item = {
-              "id": mediaItems[i].id,
-              "creationTime": Date.parse(mediaItems[i].mediaMetadata.creationTime),
-              "baseUrl": mediaItems[i].baseUrl,
-              "width": mediaItems[i].mediaMetadata.width,
-              "height": mediaItems[i].mediaMetadata.height
-            }
-            self.tempItems.push(item)
-          }
-        }
-        if (found > 0 && body.nextPageToken) {
-          options.form.pageToken = body.nextPageToken
-          getItems(options)
-        } else {
-	  callback();
+          this.log("Error happened on old cached file deleting:", err.toString())
+          throw err
         }
       })
     }
-    getItems(options)
-  },
-
-  finishedScan: function() {
-    switch(this.config.sort) {
-      case "time":
-        this.tempItems.sort((a, b)=>{
-          return b.creationTime - a.creationTime
-        })
-        break
-      case "reverse":
-        this.tempItems.sort((a, b)=>{
-          return a.creationTime - b.creationTime
-        })
-        break
-      case "random":
-        var currentIndex = this.tempItems.length, temporaryValue, randomIndex
-        while (0 !== currentIndex) {
-          randomIndex = Math.floor(Math.random() * currentIndex);
-          currentIndex -= 1;
-          temporaryValue = this.tempItems[currentIndex];
-          this.tempItems[currentIndex] = this.tempItems[randomIndex];
-          this.tempItems[randomIndex] = temporaryValue;
-        }
-        break
-    }
-    console.log("[GPHOTO] Scan finished :", this.tempItems.length)
-    //this.sendSocketNotification("IMAGE_LIST", this.items)
-    this.items = this.tempItems
-    this.tempItems= [];
-    if (this.started == false) {
-      this.started = true
-      this.broadcast()
-    }
-  },
-
-/* Changed for shared Image.
- * Very weird API. I don't know why "mediaItems:search" can access shared photos but "mediaItems/[photoID]" cannot.
- * anyway, here will be trick.
-  getPhoto: function() {
-    var photoId = this.items[this.index].id
-    const options = {
-      url: "https://photoslibrary.googleapis.com/v1/mediaItems/" + photoId,
-      method: "GET",
-      json: true,
-      auth: {
-        "bearer": this.accessToken
-      }
-    }
-    request.get(options, (err, res, body) => {
-      if (err) {
-        console.log("Error:", err)
-        return
-      }
-      this.index++
-      if (this.index >= this.items.length) {
-        this.index = 0
-      }
-      console.log("body", body)
-      var payload = {
-        "id":body.id,
-        "url":body.baseUrl + "=w" + this.config.originalHeightPx + "-h" + this.config.originalHeightPx,
-        "time": Date.parse(body.mediaMetadata.creationTime),
-        //more metadata will be provided later.
-      }
-      this.sendSocketNotification("NEW_IMAGE", payload)
-    })
+    this.downloadJob()
+    this.downloadTimer = setTimeout(()=>{
+      this.download()
+    }, this.downloadInterval)
   },
 */
-	timeSince: function(date) {
-		// Credit: https://stackoverflow.com/users/242897/sky-sanders
-		var seconds = Math.floor((new Date() - date) / 1000);
-		var interval = Math.floor(seconds / 31536000);
-		var aDate = new Date(date);
 
-		if (interval > 1) {
-			return aDate.toLocaleString('en', { month: "long" }) + ", " + interval + " years ago";
-		}
-		interval = Math.floor(seconds / 2592000);
-		if (interval > 1) {
-			return interval + " months ago";
-		}
-		interval = Math.floor(seconds / 86400);
-		if (interval > 1) {
-			return aDate.toLocaleString('en', { weekday: "long" }) + ", " + interval + " days ago";
-		}
-		interval = Math.floor(seconds / 3600);
-		if (interval > 1) {
-			return interval + " hours ago";
-		}
-		interval = Math.floor(seconds / 60);
-		if (interval > 1) {
-			return interval + " minutes ago";
-		}
-		return Math.floor(seconds) + " seconds ago";
-	},
-
-  getPhoto: function() {
-    if (this.items.length <= 0) {
-      console.log("There is no scanned photo currently.")
-      return
-    }
-    var photo = null
-    if (typeof this.items[this.index] !== "undefined") {
-      photo = this.items[this.index]
-    } else {
-      photo = this.items[0]
-      this.index = 0
-    }
-    //console.log("photo", this.index, this.items.id)
-    this.index++
-
-    var payload = {
-      "id":photo.id,
-      "url":photo.baseUrl + "=w" + this.config.originalWidthPx + "-h" + this.config.originalHeightPx,
-      "time": this.timeSince(photo.creationTime),
-      "width": photo.width,
-      "height": photo.height
-    }
-    //console.log("image", photo.baseUrl)
-    this.sendSocketNotification("NEW_IMAGE", payload)
+  scan: function() {
+    clearTimeout(this.scanTimer)
+    this.scanTimer = null
+    this.scanJob().then(()=>{
+      this.scanTimer = setTimeout(()=>{
+        this.scan()
+      }, this.scanInterval)
+    })
   },
 
-  broadcast: function() {
-    this.getPhoto()
-  }
+
+  scanJob: function() {
+    return new Promise((resolve)=>{
+      this.log("Start Album scanning")
+      this.queue = null
+      const step = async ()=> {
+        try {
+          if (this.albums.length > 0) {
+            this.photos = await this.getImageList()
+            resolve(true)
+          } else {
+            this.log("There is no album to get photos.")
+            resolve(false)
+          }
+        } catch (err) {
+          this.log(err.toString())
+          console.log(err)
+        }
+      }
+      step()
+    })
+  },
+
+  getImageList: function() {
+    var condition = this.config.condition
+    var photoCondition = (photo) => {
+      if (!photo.hasOwnProperty("mediaMetadata")) return false
+      var data = photo.mediaMetadata
+      if (data.hasOwnProperty("video")) return false
+      if (!data.hasOwnProperty("photo")) return false
+      var ct = moment(data.creationTime)
+      if (condition.fromDate && moment(condition.fromDate).isAfter(ct)) return false
+      if (condition.toDate && moment(condition.toDate).isBefore(ct)) return false
+      if (condition.minWidth && (Number(condition.minWidth) > Number(data.width))) return false
+      if (condition.minHeight && (Number(condition.minHeight) > Number(data.height))) return false
+      if (condition.maxWidth && (Number(condition.maxWidth) < Number(data.width))) return false
+      if (condition.maxHeight && (Number(condition.maxHeight) < Number(data.height))) return false
+      var whr = Number(data.width) / Number(data.height)
+      if (condition.minWHRatio && (Number(condition.minWHRatio) > whr)) return false
+      if (condition.maxWHRatio && (Number(condition.maxWHRatio) < whr)) return false
+      return true
+    }
+    var sort = (a, b) => {
+      var at = moment(a.mediaMetadata.creationTime)
+      var bt = moment(b.mediaMetadata.creationTime)
+      if (at.isBefore(bt) && this.config.sort == "new") return 1
+      if (at.isAfter(bt) && this.config.sort == "old") return 1
+      return -1
+    }
+    return new Promise((resolve)=>{
+      const step = async () => {
+        var photos = []
+        try {
+          for (var album of this.albums) {
+            var list = await GPhotos.getImageFromAlbum(album.id, photoCondition)
+            this.log(`Getting ${list.length} photo(s) list from '${album.title}'`)
+            photos = photos.concat(list)
+          }
+          if (this.config.sort == "new" || this.config.sort == "old") {
+            photos.sort((a, b) => {
+              var at = moment(a.mediaMetadata.creationTime)
+              var bt = moment(b.mediaMetadata.creationTime)
+              if (at.isBefore(bt) && this.config.sort == "new") return 1
+              if (at.isAfter(bt) && this.config.sort == "old") return 1
+              return -1
+            })
+          } else {
+            for (var i = photos.length - 1; i > 0; i--) {
+              var j = Math.floor(Math.random() * (i + 1))
+              var t = photos[i]
+              photos[i] = photos[j]
+              photos[j] = t
+            }
+          }
+          this.log(`Total indexed photos: ${photos.length}`)
+//          if (photos.length > this.config.maxCache) {
+//            this.log(`maxCache ${this.config.maxCache} is smaller than total photos. Cache will not hit.`)
+//          }
+          this.sendSocketNotification("SCANNED", photos)
+          return(photos)
+        } catch (err) {
+          this.log(err.toString())
+          console.log(err)
+        }
+      }
+      resolve(step())
+    })
+  },
 })
