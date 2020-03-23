@@ -185,6 +185,9 @@ condition: {
 }
 ```
 
+## Notice
+- First scanning will take a few (~dozens) seconds. Don't panic.
+
 
 ## Last Tested;
 - MagicMirror : v2.10.0
