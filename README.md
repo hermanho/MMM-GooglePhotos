@@ -2,9 +2,9 @@
 Display your photos from album of Google Photos on MagicMirror
 
 ## Screenshot
-![]()
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc.png)
 
-![]()
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
 **`[2.0.0] - 2020/03/23`**
