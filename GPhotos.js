@@ -8,7 +8,7 @@ const fs = require('fs')
 const path = require('path')
 const mkdirp = require('mkdirp')
 const {OAuth2Client} = require('google-auth-library')
-const Axios = require('Axios')
+const Axios = require('axios')
 const moment = require('moment')
 
 function Auth(config, debug=false) {
