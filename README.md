@@ -2,10 +2,24 @@
 Display your photos from album of Google Photos on MagicMirror
 
 ## Screenshot
-[[PlaceHolder]]
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc.png)
+
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
+
+## New Updates
+**`[2.0.0] - 2020/03/23`**
+- Notice: Whole new build from scratch. new installation and configuration is needed.
+- Removed: deprecated dependency `request`. Instead, using `Axios` and `https`
+- Changed: More stable displaying photos
+- Changed: New looks.
+- Changed: Access album by name not by id.
+- Added: You can filter photos by condition.
+- Added: `GPHOTO_NEXT`, `GPHOTO_PREVIOUS` notifications are supported.
+- Added: `GPHOTO_UPLOAD` notification is supported. Now `MMM-Selfieshot` and `MMM-TelegramBot` can upload pictures with this module.
+- Removed: `mode`, `scanInterval`, `opacity` is removed because no more necessary.
+
 
 ## Regular installation
-
 1. Install Module
 ```sh
 git clone https://github.com/eouia/MMM-GooglePhotos.git
@@ -21,65 +35,35 @@ npm install --save-dev electron-rebuild
 ./node_modules/.bin/electron-rebuild   # It could takes dozens sec.
 ```
 
-### Get `Auth` and `AlbumId`
-1. Go to [Google API Console](https://console.developers.google.com/)
-2. From the menu bar, select a project or create a new project.
-3. To open the Google API Library, from the Navigation menu, select `APIs & Services > Library`.
-	DOn't forget to enble the Google API Services.
-4. Search for "Google Photos Library API". Select the correct result and click Enable. (You may need to enable "Google Plus" also.)
-5. Then, from the menu, select `APIs & Services > Credentials`.
-6. On the Credentials page, click `Create Credentials > OAuth client ID`.
-7. Select your Application type as `Other` and submit. (Before or After that, you might be asked for making consent screen. do that.)
-8. Then, you can download your credential json file from list. Downloaded file name would be `client_secret_xxxx...xxx.json`. rename it as `credentials.json` and save it to your `MMM-GooglePhotos` directory.
-9. Now, open your termial(not via SSH, directly in your RPI).
-```shell
-cd ~/MagicMirror/modules/MMM-GooglePhotos
-node auth_and_test.js
-```
-10. At first execution, It will open a browser and will ask you to login google account and to consent your allowance.
-11. After consent, some code (`4/ABCD1234xxxx...`) will be appeared. copy it and return to your terminal. paste it for answer of prompt in console.
-12. Now you can get list of your Google Photos albums. like these;
-```
-<ALBUM_NAME> : <ALBUM_ID>
-travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
-...
-```
-13. Remember the id of album to show.
-14. now set your `config.js`
-
-## Using Docker
-Assuming you followed the [guide](https://github.com/MichMich/MagicMirror#docker) for setting up MagicMirror² in server only mode using Docker. Make sure your docker container is running.
-
-1. Install Module
+2. If you are using Docker
 ```sh
 cd ~/magic_mirror/modules
 git clone https://github.com/eouia/MMM-GooglePhotos.git
 docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror npm install
 ```
 
-### Get `Auth` and `AlbumId`
+
+### Get `token.json`
 1. Go to [Google API Console](https://console.developers.google.com/)
 2. From the menu bar, select a project or create a new project.
 3. To open the Google API Library, from the Navigation menu, select `APIs & Services > Library`.
+	 Don't forget to enble the Google API Services.
 4. Search for "Google Photos Library API". Select the correct result and click Enable. (You may need to enable "Google Plus" also.)
 5. Then, from the menu, select `APIs & Services > Credentials`.
 6. On the Credentials page, click `Create Credentials > OAuth client ID`.
-7. Select your Application type as `Other` and submit. (Before or After that, you might be asked for making consent screen. do that.)
+7. Select your Application type as **`Other`**(IMPORTANT!!!) and submit. (Before or After that, you might be asked for making consent screen. do that.)
 8. Then, you can download your credential json file from list. Downloaded file name would be `client_secret_xxxx...xxx.json`. rename it as `credentials.json` and save it to your `MMM-GooglePhotos` directory.
-9. Now, open your termial.
+9. Now, open your termial(not via SSH, directly in your RPI).
 ```shell
-docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror node auth_and_test.js 
+cd ~/MagicMirror/modules/MMM-GooglePhotos
+node generate_token.js
 ```
-10. Copy the link to a browser and login to your google account and to consent your allowance.
-11. After consent, some code (`4/ABCD1234xxxx...`) will appear. Copy it and return to your terminal. Paste it for answer of prompt in console.
-12. Now you can get list of your Google Photos albums. like these;
-```
-<ALBUM_NAME> : <ALBUM_ID>
-travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
-...
-```
-13. Remember the id of album to show.
-14. Now set your `config.js`
+10. At first execution, It will open a browser and will ask you to login google account and to consent your allowance.
+11. After consent, some code (`4/ABCD1234xxxx...`) will be appeared. copy it and return to your terminal. paste it for answer of prompt in console.
+12. Check whether `token.json` is created in your `MMM-`
+
+
+
 
 ## Configuration
 ```javascript
@@ -87,44 +71,121 @@ travel to paris : AGj1epU5VMNoBGK9GDX3k_zDQaPT16Fe56o0N93eN6aXn-f21M98
   module: "MMM-GooglePhotos",
   position: "top_right",
   config: {
-    
-    albumId: ["ALBUM_ID1", "ALBUM_ID2"], 	// your album id(s) from result of `auth_and_test.js`
-    refreshInterval: 1000*60,							// Number of milliseconds before showing a different photo
-    scanInterval: 1000*60*10,							// too many scans might cause API quota limit also
-    //note(2018-07-29). It is some weird. API documents said temporal image url would live for 1 hour, but it might be broken shorter. So, per 10 min scanning could prevent dead url.
-
-    sort: "time", 												//'time', 'reverse', 'random'
-    showWidth: "800px", 									// how large the photo will be shown as. (e.g;'100%' for fullscreen)
-    showHeight: "600px",
-    originalWidthPx: 800, 								// original size of loaded image. (related with image quality)
-    originalHeightPx: 600, 								// Bigger size gives you better quality, but can give you network burden
-    opacity: 1, 													// target "opacity" property (https://www.w3schools.com/cssref/css3_pr_opacity.asp)
-    mode: "hybrid", 											// "cover" or "contain" (https://www.w3schools.com/cssref/css3_pr_background-size.asp)
-																					// "hybrid": will change "cover" and "contain" automatically based on aspect ratio
-    showDateLabel: true,									// If True, shows a label of how long ago the photo was taken (e.g. 2 years ago, 7 days ago, etc...)
+		albums: [], // Set your album name. like ["My wedding", "family share", "Travle to Paris"]
+		updateInterval: 1000 * 60, // minimum 10 seconds.
+		sort: "new", // "old", "random"
+		uploadAlbum: null, // Only album created by `create_uploadable_album.js`.
+		condition: {
+			fromDate: null, // Or "2018-03", RFC ... format available
+			toDate: null, // Or "2019-12-25",
+			minWidth: null, // Or 400
+			maxWidth: null, // Or 8000
+			minHeight: null, // Or 400
+			maxHeight: null, // Or 8000
+			minWHRatio: null,
+			maxWHRatio: null,
+			// WHRatio = Width/Height ratio ( ==1 : Squared Photo,   < 1 : Portraited Photo, > 1 : Landscaped Photo)
+		},
+		showWidth: 1080, // These values will be used for quality of downloaded photos to show. real size to show in your MagicMirror region is recommended.
+		showHeight: 1920,
+		timeFormat: "YYYY/MM/DD HH:mm", // Or `relative` can be used.
   }
 },
 ```
 
+## Usage
+### **`albums`**
+Now this module can access not only your owns but also shared. You can specify album title like this.
+```js
+albums: ["My wedding", "family share", "Travle to Paris", "from Tom"],
+```
+- Caution. Too many albums and photos could make long bootup delay.
+- Remember this. You can only show max 8640 photos in a day. Manage your album what to show, it will make better performance.
+
+### **`updateInterval`**
+- Minimum `updateInterval` is 10 seconds. Too often update could makes API quota drains or network burden.
+
+### **`sort`**
+- `new`, `old`, `random` are supported.
+
+### **`uploadAlbum`**
+- If you set this, you can upload pictures from MagicMirror to Google Photos through `GPHOTO_UPLOAD` notification.
+```js
+this.sendNotification('GPHOTO_UPLOAD', path)
+```
+- This album **SHOULD** be created by `create_uploadable_album.js`.
+```sh
+node create_uploadable_album.js MyMagicMirrorAlbum
+```
+- At this moment, `MMM-Selfieshot` and `MMM-TelegramBot` can upload their pictures through this feature.
+
+### **`condition`**
+- You can filter photos by this object.
+- `fromDate` : If set, The photos which was created after this value will be loaded. (e.g: `fromDate:"2015-12-25"` or `fromDate:"6 Mar 17 21:22 UT"`)
+- `toDate` : If set, The photos which was created before this value will be loaded. (e.g: `toDate:"Mon 06 Mar 2017 21:22:23 z"` or `toDate:"20130208"`)
+- ISO 8601 and RFC 2822 is supported for `fromDate` and `toDate`.
+- `minWidth`, `maxWidth`, `minHeight`, `maxHeight` : If set, the photos have these value as original dimensiont will be loaded. You can use these values to avoid too big or too small pictures(like icons)
+- `minWHRatio`, `maxWHRatio` : With these values, you can get only portrait photos(or landscaped, or squared)
+- **WHRatio** is `width / height`. So `=1` will be squared dimension. `>1` will be landscaped. `<1` will be portrait.
+- Example:
+```js
+condition: {
+	fromDate: "2018-01-01", // I don't want older photos than this.
+	minWidth: 600, // I don't want to display some icons or meme-pictures from my garbage collecting albums.
+	maxWHRatio: 1, // I want to display photos which are portrait.
+}
+```
+
+### **`showWidth`, `showHeight`**
+- Specify your real resolution to show.
+
+### **`timeFormat`**
+- Specify time format for photo info. You can also use `relative` to show more humanized.
+
+### **`debug`**
+- If set, more detailed info will be logged.
+
+## Tip.
+- Not to show photo info : Add this into your `css/custom.css`.
+```css
+#GPHOTO_INFO {
+	display:none;
+}
+```
+
+- To move photo info to other position (e.g: top-left corner): Add this into your `css/custom.css`.
+```css
+#GPHOTO_INFO {
+  top: 10px;
+  left: 10px;
+  bottom: inherit;
+  right: inherit;
+}
+```
+
+- Not to show blurred Background : Add this into your `css/custom.css`.
+```css
+#GPHOTO_BACK {
+	display:none;
+}
+```
+
+- To cover whole region with image : Add this into your `css/custom.css`.
+```css
+#GPHOTO_CURRENT {
+	background-size:cover;
+}
+```
+
+- To display `clock` more clearly on showing in `fullscreen_below` : Add this into your `css/custom.css`.
+```css
+.clock {
+  padding: 10px;
+	background-color: rgba(0, 0, 0, 0.5);
+}
+```
+
+
 ## Last Tested;
-- MagicMirror : v2.4.1
-- node.js : 8.11.3 & 10.x
-
-
-## Update
-### [2019-10-22]
-- Add `opacity`
-- Fix : multi-album issue.
-Thanks to @philcali 
-
-
-### [2018-12-29]
-- Configure one or more albumIds
-
-### [2018-07-29]
-- Fix the issue of dead url.
-(It seems also the problem of API. documents said temporal url would live for 1 hour, but it might be broken shorter.)
-
-### [2018-07-22]
-- Fix the issue of photos shared from others.
-(I think it was the problem of API, because `mediaItem:search` can access shared photos but `mediaItem/Id` cannot. That is out of sense.)
+- MagicMirror : v2.10.0
+- node.js : required over v8.

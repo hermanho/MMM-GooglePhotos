@@ -1,0 +1,5 @@
+{
+  "keyFilePath": "./credentials.json",
+  "savedTokensPath": "./token.json",
+  "scope": "https://www.googleapis.com/auth/photoslibrary https://www.googleapis.com/auth/photoslibrary.sharing"
+}
