@@ -9,6 +9,7 @@ const path = require('path')
 const mkdirp = require('mkdirp')
 const {OAuth2Client} = require('google-auth-library')
 const Axios = require('Axios')
+const moment = require('moment')
 
 function Auth(config, debug=false) {
   const log = (debug) ? (...args)=>{console.log("[GPHOTOS:AUTH]", ...args)} : ()=>{}
@@ -315,6 +316,81 @@ class GPhotos {
               }
             )
             resolve(shareInfo.data)
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        create()
+      })
+    })
+  }
+
+  upload(path) {
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        const upload = async() => {
+          try {
+            let newFile = fs.createReadStream(path)
+            var url = 'uploads'
+            var option = {
+              method: 'post',
+              url: url,
+              baseURL: 'https://photoslibrary.googleapis.com/v1/',
+              headers: {
+                Authorization: 'Bearer ' + token,
+                "Content-type": "application/octet-stream",
+                //X-Goog-Upload-Content-Type: mime-type
+                "X-Goog-Upload-Protocol": "raw",
+              },
+            }
+            option.data = newFile
+            Axios(option).then((ret)=>{
+              resolve(ret.data)
+            }).catch((e)=>{
+              this.log(e.toString())
+              throw e
+            })
+          } catch(err) {
+            this.log(err.toString())
+            throw err
+          }
+        }
+        upload()
+      })
+    })
+  }
+
+  create(uploadToken, albumId) {
+    return new Promise((resolve)=>{
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        const create = async() => {
+          try {
+            let fileName = moment().format("[MM_]YYYYMMDD_HHmm")
+            var result = await this.request(
+              token,
+              'mediaItems:batchCreate',
+              'post',
+              null,
+              {
+                "albumId": albumId,
+                "newMediaItems": [
+                  {
+                    "description": "Uploaded by MMM-GooglePhotos",
+                    "simpleMediaItem": {
+                      "uploadToken": uploadToken,
+                      "fileName": fileName
+                    }
+                  }
+                ],
+                "albumPosition": {
+                  "position": "LAST_IN_ALBUM"
+                }
+              }
+            )
+            resolve(result.data)
           } catch(err) {
             this.log(err.toString())
             throw err

@@ -20,10 +20,7 @@ module.exports = NodeHelper.create({
     this.albums = []
     this.photos = []
     this.queue = null
-  },
-
-  cachePath: function (t = "") {
-    return path.resolve(__dirname, "cache", t)
+    this.uploadAlbumId
   },
 
   socketNotificationReceived: function(notification, payload) {
@@ -31,11 +28,31 @@ module.exports = NodeHelper.create({
       case 'INIT':
         this.initializeAfterLoading(payload)
         break
+      case 'UPLOAD':
+        this.upload(payload)
+        break
     }
   },
 
   log: function(...args) {
     if (this.debug) console.log("[GPHOTOS]", ...args)
+  },
+
+  upload: function(path) {
+    if (!this.uploadAlbumId) {
+      this.log("No uploadable album exists.")
+      return
+    }
+    const step = async ()=> {
+      var uploadToken = await GPhotos.upload(path)
+      if (uploadToken) {
+        var result = await GPhotos.create(uploadToken, this.uploadAlbumId)
+        this.log("Upload completed.")
+      } else {
+        this.log("Upload Fails.")
+      }
+    }
+    step()
   },
 
   initializeAfterLoading: function(config) {
@@ -55,7 +72,8 @@ module.exports = NodeHelper.create({
         })
         if (uploadAlbum) {
           if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
-            this.log("Confirmed Uploadable album:", config.uploadAlbum)
+            this.log("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id)
+            this.uploadAlbumId = uploadAlbum.id
             this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum)
           } else {
             this.log("This album is not uploadable:", config.uploadAlbum)
@@ -101,78 +119,6 @@ module.exports = NodeHelper.create({
       step()
     })
   },
-/*
-  downloadJob: function() {
-    if (this.photos.length < 1) return
-    var isCached = (t) => {
-      try {
-        //console.log("!T", t)
-        var path = this.cachePath(t.id)
-        console.log("path:", path)
-        if (fs.existsSync(path)) return true
-        return false
-      } catch (err) {
-        this.log(err.toString())
-        console.log(err)
-        return false
-      }
-    }
-    var doDownload = (idx) => {
-      var target = this.photos[idx]
-      if (isCached(target)) {
-        this.log(`'${target.id}' is already cached.`)
-        idx++
-        if (idx >= this.photos.length) {
-          this.log("No more downloadable photos.")
-          return false
-        }
-        return doDownload(idx)
-      } else {
-        var file = fs.createWriteStream(this.cachePath(target.id))
-        file.on('finish', ()=>{
-          this.lastDownloadedId = target.tid
-          this.log("Photo downloaded:", target.id)
-        })
-        const url = target.baseUrl + `=w${this.config.downloadWidth}-h${this.config.downloadHeight}`
-        const request = https.get(url, (response)=>{
-          response.pipe(file)
-        })
-        return true
-      }
-    }
-    var index = this.photos.findIndex((p)=> {
-      if (p.id == this.lastDownloadedId) return true
-      return false
-    })
-    if (index < 0) index = 0
-    console.log("Index:", index)
-    return doDownload(index)
-  },
-
-  download: function() {
-    clearTimeout(this.downloadTimer)
-    var cands = this.photos.map((p)=>{
-      return p.id
-    })
-    var cached = fs.readdirSync(this.cachePath()).sort((a, b) => {
-      return fs.statSync(this.cachePath(a)).mtime.getTime() - fs.statSync(this.cachePath(b)).mtime.getTime()
-    })
-    if (cached.length >= this.config.maxCache) {
-      var target = cached[0]
-      this.log(`Old cached photo '${target}' is destroying.`)
-      fs.unlink(this.cachePath(cached[0]), (err)=>{
-        if (err) {
-          this.log("Error happened on old cached file deleting:", err.toString())
-          throw err
-        }
-      })
-    }
-    this.downloadJob()
-    this.downloadTimer = setTimeout(()=>{
-      this.download()
-    }, this.downloadInterval)
-  },
-*/
 
   scan: function() {
     clearTimeout(this.scanTimer)
@@ -183,7 +129,6 @@ module.exports = NodeHelper.create({
       }, this.scanInterval)
     })
   },
-
 
   scanJob: function() {
     return new Promise((resolve)=>{
@@ -259,9 +204,6 @@ module.exports = NodeHelper.create({
             }
           }
           this.log(`Total indexed photos: ${photos.length}`)
-//          if (photos.length > this.config.maxCache) {
-//            this.log(`maxCache ${this.config.maxCache} is smaller than total photos. Cache will not hit.`)
-//          }
           this.sendSocketNotification("SCANNED", photos)
           return(photos)
         } catch (err) {

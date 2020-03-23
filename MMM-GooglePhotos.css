@@ -53,7 +53,6 @@
   background-color: rgba(0,0,0,0.5);
   padding: 10px;
   border-radius: 36px;
-  font-size: 12px;
   line-height: 100%;
   text-align:left;
 }
@@ -69,60 +68,19 @@
 }
 
 #GPHOTO_INFO .albumTitle {
-  color:#FEE;
+  color:#FDD;
 }
 
 #GPHOTO_INFO .photoTime {
-  color:#EFE;
+  color:#DFD;
 }
 
 #GPHOTO_INFO .infoText {
   float:right;
   margin-left: 12px;
-  padding-top:12px;
+  padding-right: 12px;
+  padding-top:6px;
+  font-size:18px;
+  line-height:100%;
   color:#FFF;
 }
-
-
-.module {
-  padding:5px;
-  background-color:rgba(0,0,0,0.5);
-  text-shadow: 2px 2px #000;
-}
-/*
-#GPHOTO_BACK {
-  display:none;
-}
-
-#GPHOTO_CURRENT {
-  background-size:cover;
-}
-*/
-/*
-#GPHOTO {
-  background-size:cover;
-  background-repeat:no-repeat;
-  background-position:center;
-  transition: opacity 1s ease 1s;
-}
-
-.region.fullscreen #GPHOTO {
-  position:absolute;
-  top:0;
-  left:0;
-}
-
-.datelabel {
-  position: absolute;
-  bottom: 40px;
-  left: 40px;
-  color: white;
-  text-shadow: 0px 0px 1px black, 2px 2px 5px white;
-}
-*/
-
-/*
-.region > .container {
-  background-color: rgba(0,0,0,0.5);
-}
-*/

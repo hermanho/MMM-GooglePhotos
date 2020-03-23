@@ -5,7 +5,7 @@
 Module.register("MMM-GooglePhotos", {
   defaults: {
     albums: [],
-    updateInterval: 1000 * 60, // minimum 10 seconds.
+    updateInterval: 1000 * 30, // minimum 10 seconds.
     sort: "new", // "old", "random"
     uploadAlbum: null, // Only for created by `create_uploadable_album.js`
     condition: {
@@ -65,6 +65,9 @@ Module.register("MMM-GooglePhotos", {
     if (noti == "GPHOTO_PREVIOUS") {
       this.updatePhotos(-2)
     }
+    if (noti == "GPHOTO_UPLOAD") {
+      this.sendSocketNotification("UPLOAD", payload)
+    }
   },
 
   updatePhotos: function(dir=0) {
@@ -116,7 +119,9 @@ Module.register("MMM-GooglePhotos", {
       albumTitle.innerHTML = album.title
       var photoTime = document.createElement("div")
       photoTime.classList.add("photoTime")
-      photoTime.innerHTML = moment(target.mediaMetadata.creationTime).format(this.config.timeFormat)
+      photoTime.innerHTML = (this.config.timeFormat == "relative")
+        ? moment(target.mediaMetadata.creationTime).fromNow()
+        : moment(target.mediaMetadata.creationTime).format(this.config.timeFormat)
       var infoText = document.createElement("div")
       infoText.classList.add("infoText")
 

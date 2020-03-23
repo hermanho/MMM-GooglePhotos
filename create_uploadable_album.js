@@ -12,7 +12,6 @@ if (!args) {
   console.log ("Give an album name. (e.g:> node create_uploadable_album.js MagicMirrorAlbum )")
   process.exit()
 }
-console.log(args)
 
 const steps = async() => {
   try {
