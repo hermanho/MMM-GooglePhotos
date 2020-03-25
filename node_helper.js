@@ -89,7 +89,7 @@ module.exports = NodeHelper.create({
         })
         if (!matched) {
           this.log(`Can't find "${ta}" in your album list.`)
-        } else {
+        } else if (!this.albums.contains(matched)) {
           this.albums.push(matched)
         }
       }
