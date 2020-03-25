@@ -87,9 +87,12 @@ module.exports = NodeHelper.create({
           if (ta == a.title) return true
           return false
         })
+        var exists = function (albums, album) {
+          return albums.some(expected => album.id === expected.id)
+        }
         if (!matched) {
           this.log(`Can't find "${ta}" in your album list.`)
-        } else if (!this.albums.contains(matched)) {
+        } else if (!exists(this.albums, matched)) {
           this.albums.push(matched)
         }
       }
