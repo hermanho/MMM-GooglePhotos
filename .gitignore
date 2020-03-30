@@ -2,3 +2,4 @@ credentials.json
 token.json
 node_modules/
 cache/*
+.idea
