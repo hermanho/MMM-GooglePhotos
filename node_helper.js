@@ -116,8 +116,13 @@ module.exports = NodeHelper.create({
   getAlbums: function() {
     return new Promise((resolve)=>{
       const step = async ()=> {
-        var r = await GPhotos.getAlbums()
-        resolve(r)
+        try {
+          var r = await GPhotos.getAlbums()
+          resolve(r)
+        } catch (err) {
+          this.log(err.toString())
+          console.log(err)
+        }
       }
       step()
     })

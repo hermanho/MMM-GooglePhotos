@@ -11,6 +11,11 @@ const {OAuth2Client} = require('google-auth-library')
 const Axios = require('axios')
 const moment = require('moment')
 
+function sleep(ms=1000) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
 function Auth(config, debug=false) {
   const log = (debug) ? (...args)=>{console.log("[GPHOTOS:AUTH]", ...args)} : ()=>{}
   if (config === undefined) config = {}
@@ -202,6 +207,7 @@ class GPhotos {
         var list = []
         var found = 0
         const getAlbum = async (pageSize=50, pageToken="") => {
+          this.log("Getting Album info chunks.")
           var params = {
             pageSize: pageSize,
             pageToken: pageToken,
@@ -214,7 +220,11 @@ class GPhotos {
               list = list.concat(body[type])
             }
             if (body.nextPageToken) {
-              getAlbum(pageSize, body.nextPageToken)
+              const generous = async () => {
+                await sleep(500)
+                getAlbum(pageSize, body.nextPageToken)
+              }
+              generous()
             } else {
               this.albums[type] = list
               resolve(list)
@@ -235,6 +245,7 @@ class GPhotos {
         var token = client.credentials.access_token
         var list = []
         const getImage = async (pageSize=50, pageToken="") => {
+          this.log("Indexing photos now.")
           try {
             var data = {
               "albumId": albumId,
@@ -257,7 +268,11 @@ class GPhotos {
                 resolve(list) // full with maxNum
               } else {
                 if (response.data.nextPageToken) {
-                  getImage(50, response.data.nextPageToken)
+                  const generous = async () => {
+                    await sleep(500)
+                    getImage(50, response.data.nextPageToken)
+                  }
+                  generous()
                 } else {
                   resolve(list) // all found but lesser than maxNum
                 }
