@@ -7,6 +7,9 @@ Display your photos from album of Google Photos on MagicMirror
 ![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
+**`[2.0.1] - 2020/03/31`**
+- Fixed: 503 error from too often/many requests. (Thanks to @olafnorge)
+
 **`[2.0.0] - 2020/03/23`**
 - Notice: Whole new build from scratch. new installation and configuration is needed.
 - Removed: deprecated dependency `request`. Instead, using `Axios` and `https`
