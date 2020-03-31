@@ -52,6 +52,9 @@ docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror npm i
 5. Then, from the menu, select `APIs & Services > Credentials`.
 6. On the Credentials page, click `Create Credentials > OAuth client ID`.
 7. Select your Application type as **`Other`**(IMPORTANT!!!) and submit. (Before or After that, you might be asked for making consent screen. do that.)
+> Google might change the menu name. So current this would work;
+![](https://user-images.githubusercontent.com/1720610/77527670-d9fdff00-6e8c-11ea-9e9f-59c7eabc6db9.png)
+
 8. Then, you can download your credential json file from list. Downloaded file name would be `client_secret_xxxx...xxx.json`. rename it as `credentials.json` and save it to your `MMM-GooglePhotos` directory.
 9. Now, open your termial(not via SSH, directly in your RPI).
 ```shell
@@ -184,6 +187,9 @@ condition: {
 	background-color: rgba(0, 0, 0, 0.5);
 }
 ```
+
+## Notice
+- First scanning will take a few (~dozens) seconds. Don't panic.
 
 
 ## Last Tested;
