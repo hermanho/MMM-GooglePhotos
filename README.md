@@ -7,6 +7,12 @@ Display your photos from album of Google Photos on MagicMirror
 ![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
+**`[2.0.2] - 2020/04/01`**
+- Added: `autoInfoPosition` - For preventing LCD burning, Photo info can be relocated by condition.
+    - `true` : automatically change position to each corner per 15 minutes.
+		- `false` : not using.
+		- callbackfunction (album, photo) : User can make his own position.
+
 **`[2.0.1] - 2020/03/31`**
 - Fixed: 503 error from too often/many requests. (Thanks to @olafnorge)
 
@@ -100,7 +106,7 @@ node generate_token.js
 ```
 
 ## Usage
-### **`albums`**
+#### **`albums`**
 Now this module can access not only your owns but also shared. You can specify album title like this.
 ```js
 albums: ["My wedding", "family share", "Travle to Paris", "from Tom"],
@@ -108,13 +114,13 @@ albums: ["My wedding", "family share", "Travle to Paris", "from Tom"],
 - Caution. Too many albums and photos could make long bootup delay.
 - Remember this. You can only show max 8640 photos in a day. Manage your album what to show, it will make better performance.
 
-### **`updateInterval`**
+#### **`updateInterval`**
 - Minimum `updateInterval` is 10 seconds. Too often update could makes API quota drains or network burden.
 
-### **`sort`**
+#### **`sort`**
 - `new`, `old`, `random` are supported.
 
-### **`uploadAlbum`**
+#### **`uploadAlbum`**
 - If you set this, you can upload pictures from MagicMirror to Google Photos through `GPHOTO_UPLOAD` notification.
 ```js
 this.sendNotification('GPHOTO_UPLOAD', path)
@@ -125,7 +131,7 @@ node create_uploadable_album.js MyMagicMirrorAlbum
 ```
 - At this moment, `MMM-Selfieshot` and `MMM-TelegramBot` can upload their pictures through this feature.
 
-### **`condition`**
+#### **`condition`**
 - You can filter photos by this object.
 - `fromDate` : If set, The photos which was created after this value will be loaded. (e.g: `fromDate:"2015-12-25"` or `fromDate:"6 Mar 17 21:22 UT"`)
 - `toDate` : If set, The photos which was created before this value will be loaded. (e.g: `toDate:"Mon 06 Mar 2017 21:22:23 z"` or `toDate:"20130208"`)
@@ -142,14 +148,31 @@ condition: {
 }
 ```
 
-### **`showWidth`, `showHeight`**
+#### **`showWidth`, `showHeight`**
 - Specify your real resolution to show.
 
-### **`timeFormat`**
+#### **`timeFormat`**
 - Specify time format for photo info. You can also use `relative` to show more humanized.
 
-### **`debug`**
+#### **`debug`**
 - If set, more detailed info will be logged.
+
+#### **`autoInfoPosition`**
+- For preventing LCD burning, Photo info can be relocated by condition.
+  	- `true` : automatically change position to each corner per 15 minutes.
+		- `false` : not using.
+		- callbackfunction (album, photo) : User can make his own position. It should return `[top, left, bottom, right]`
+```js
+autoInfoPosition: true, // or false
+
+// User custom callback
+autoInfoPosition: (album, photo)=> {
+ return ['10px', '10px', 'none', 'none'] // This will show photo info top-left corner.
+}
+
+```
+
+
 
 ## Tip.
 - Not to show photo info : Add this into your `css/custom.css`.
@@ -188,6 +211,18 @@ condition: {
 .clock {
   padding: 10px;
 	background-color: rgba(0, 0, 0, 0.5);
+}
+```
+
+- To give opacity to photos:
+```CSS
+@keyframes trans {
+  from {opacity: 0}
+  to {opacity: 0.5}
+}
+#GPHOTO_CURRENT {
+  background-size:cover;
+  opacity:0.5;
 }
 ```
 
