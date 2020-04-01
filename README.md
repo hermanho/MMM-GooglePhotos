@@ -214,6 +214,18 @@ autoInfoPosition: (album, photo)=> {
 }
 ```
 
+- To give opacity to photos:
+```CSS
+@keyframes trans {
+  from {opacity: 0}
+  to {opacity: 0.5}
+}
+#GPHOTO_CURRENT {
+  background-size:cover;
+  opacity:0.5;
+}
+```
+
 ## Notice
 - First scanning will take a few (~dozens) seconds. Don't panic.
 
