@@ -21,7 +21,8 @@ Module.register("MMM-GooglePhotos", {
     },
     showWidth: 1080, // These values will be used for quality of downloaded photos to show. real size to show in your MagicMirror region is recommended.
     showHeight: 1920,
-    timeFormat: "YYYY/MM/DD HH:mm"
+    timeFormat: "YYYY/MM/DD HH:mm",
+    autoInfoPosition: false,
   },
 
   getStyles: function() {
@@ -38,6 +39,7 @@ Module.register("MMM-GooglePhotos", {
     if (this.config.updateInterval < 1000 * 10) this.config.updateInterval = 1000 * 10
     this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition)
     this.sendSocketNotification("INIT", this.config)
+    this.dynamicPosition = 0
   },
 
   socketNotificationReceived: function(noti, payload) {
@@ -110,6 +112,28 @@ Module.register("MMM-GooglePhotos", {
         if (a.id == target._albumId) return true
         return false
       })
+      if (this.config.autoInfoPosition) {
+        var op = (album, target) => {
+          var now = new Date()
+          var q = Math.floor(now.getMinutes() / 15)
+          var r = [
+            [0,       'none',   'none',   0     ],
+            ['none',  'none',   0,        0     ],
+            ['none',  0,        0,        'none'],
+            [0,       0,        'none',   'none'],
+          ]
+          return r[q]
+        }
+        if (typeof this.config.autoInfoPosition == 'function') {
+          op = this.config.autoInfoPosition
+        }
+        let [top, left, bottom, right] = op(album, target)
+        console.log(top, left, bottom, right)
+        info.style.setProperty('--top', top)
+        info.style.setProperty('--left', left)
+        info.style.setProperty('--bottom', bottom)
+        info.style.setProperty('--right', right)
+      }
       info.innerHTML = ""
       var albumCover = document.createElement("div")
       albumCover.classList.add("albumCover")
