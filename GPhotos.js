@@ -281,7 +281,8 @@ class GPhotos {
               resolve(list) // empty
             }
           } catch(err) {
-            this.log(err.toString())
+            this.log(".getImageFromAlbum()", err.toString())
+            this.log(err)
             throw err
           }
         }
@@ -303,7 +304,8 @@ class GPhotos {
             })
             resolve(created.data)
           } catch(err) {
-            this.log(err.toString())
+            this.log(".createAlbum() ", err.toString())
+            this.log(err)
             throw err
           }
         }
@@ -332,7 +334,8 @@ class GPhotos {
             )
             resolve(shareInfo.data)
           } catch(err) {
-            this.log(err.toString())
+            this.log(".shareAlbum()", err.toString())
+            this.log(err)
             throw err
           }
         }
@@ -364,11 +367,13 @@ class GPhotos {
             Axios(option).then((ret)=>{
               resolve(ret.data)
             }).catch((e)=>{
-              this.log(e.toString())
+              this.log(".upload:resultResolving ", e.toString())
+              this.log(e)
               throw e
             })
           } catch(err) {
-            this.log(err.toString())
+            this.log(".upload()", err.toString())
+            this.log(err)
             throw err
           }
         }
@@ -407,7 +412,8 @@ class GPhotos {
             )
             resolve(result.data)
           } catch(err) {
-            this.log(err.toString())
+            this.log(".create() ", err.toString())
+            this.log(err)
             throw err
           }
         }

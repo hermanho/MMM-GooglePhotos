@@ -31,6 +31,12 @@ module.exports = NodeHelper.create({
       case 'UPLOAD':
         this.upload(payload)
         break
+      case 'IMAGE_LOAD_FAIL':
+        this.log("Image loading fails. Check your network.:", payload)
+        break
+      case 'IMAGE_LOADED':
+        this.log("Image loaded:", payload)
+        break
     }
   },
 

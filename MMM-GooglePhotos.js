@@ -99,6 +99,10 @@ Module.register("MMM-GooglePhotos", {
 
   ready: function(url, target) {
     var hidden = document.createElement("img")
+    hidden.onerror = () => {
+      console.log("[GPHOTO] Image load fails.")
+      this.sendSocketNotification("IMAGE_LOAD_FAIL", url)
+    }
     hidden.onload = () => {
       var back = document.getElementById("GPHOTO_BACK")
       var current = document.getElementById("GPHOTO_CURRENT")
@@ -128,7 +132,6 @@ Module.register("MMM-GooglePhotos", {
           op = this.config.autoInfoPosition
         }
         let [top, left, bottom, right] = op(album, target)
-        console.log(top, left, bottom, right)
         info.style.setProperty('--top', top)
         info.style.setProperty('--left', left)
         info.style.setProperty('--bottom', bottom)
@@ -153,6 +156,8 @@ Module.register("MMM-GooglePhotos", {
       infoText.appendChild(albumTitle)
       infoText.appendChild(photoTime)
       info.appendChild(infoText)
+      console.log("[GPHOTO] Image loaded:", url)
+      this.sendSocketNotification("IMAGE_LOADED", url)
     }
     hidden.src = url
   },
