@@ -1,5 +1,3 @@
-> This module is not supported any more. It is archived.
-
 # MMM-GooglePhotos
 Display your photos from album of Google Photos on MagicMirror
 
