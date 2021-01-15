@@ -136,7 +136,7 @@ module.exports = NodeHelper.create({
       
 	  //load cached list - if available
       fs.readFile(this.path +"/cache/photoListCache.json", 'utf-8', (err,data) => {
-        if (err) { console.log(err) }
+        if (err) { this.log('unable to load cache', err) }
         else {
           this.localPhotoList = JSON.parse(data.toString())
           this.log("successfully loaded cache of ", this.localPhotoList.length, " photos")
@@ -147,7 +147,7 @@ module.exports = NodeHelper.create({
       this.log("Initialization complete!")
       clearTimeout(this.initializeTimer)
       this.log("Start first scanning.")
-      this.scan()
+      this.startScanning()
     },
 
   prepAndSendChunk: async function(desiredChunk = 50) {
@@ -201,14 +201,13 @@ module.exports = NodeHelper.create({
   },
 
  
-  scan: function() {
-    // set up timer first, in case it fails, timer will still be set to retry
-						 
-							 
-	this.scanTimer = setTimeout(()=>{
-        this.scan()
-      }, this.scanInterval)
-	// after timer is set, try to scan
+  startScanning: function() {
+    // set up interval, then 1 fail won't stop future scans
+    this.scanTimer = setInterval(()=>{
+      this.scanJob()
+    }, this.scanInterval)
+      
+    // call for first time
     this.scanJob()
   },
 
@@ -304,5 +303,10 @@ module.exports = NodeHelper.create({
       }
       resolve(step())
     })
+  },
+  
+  
+  stop: function() {
+    clearInterval(this.scanTimer)
   },
 })
