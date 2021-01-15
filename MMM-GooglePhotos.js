@@ -35,11 +35,16 @@ Module.register("MMM-GooglePhotos", {
     this.scanned = []
     this.updateTimer = null
     this.index = 0
+    this.needMorePicsFlag = true
     this.firstScan = true
     if (this.config.updateInterval < 1000 * 10) this.config.updateInterval = 1000 * 10
     this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition)
     this.sendSocketNotification("INIT", this.config)
     this.dynamicPosition = 0
+    //set up timer, more robust against faults
+    this.updateTimer = setTimeout(()=>{
+      this.updatePhotos()
+    }, this.config.updateInterval)
   },
 
   socketNotificationReceived: function(noti, payload) {
@@ -49,14 +54,11 @@ Module.register("MMM-GooglePhotos", {
     if (noti == "INITIALIZED") {
       this.albums = payload
     }
-    if (noti == "SCANNED") {
+    if (noti == "MORE_PICS") {
       if (payload && Array.isArray(payload) && payload.length > 0)
+      this.needMorePicsFlag = false
       this.scanned = payload
-      if (this.firstScan) {
-        this.firstScan == false
-        this.updatePhotos()
-      }
-
+      this.index = 0
     }
   },
 
@@ -73,28 +75,31 @@ Module.register("MMM-GooglePhotos", {
   },
 
   updatePhotos: function(dir=0) {
-    clearTimeout(this.updateTimer)
-    if (this.scanned.length == 0) return
-    this.index = this.index + dir
+    this.firstScan == false
+    //moved this up top. In case it fails, timer is already updated
+    this.updateTimer = setTimeout(()=>{
+      this.updatePhotos()
+    }, this.config.updateInterval)
+    if (this.scanned.length == 0) {
+      this.sendSocketNotification("NEED_MORE_PICS", [])
+      return
+    }
+    this.index = this.index + dir //only used for reversing
     if (this.index < 0) this.index = 0
     if (this.index >= this.scanned.length) {
       this.index = 0
-      if (this.config.sort == "random") {
-        for (var i = this.scanned.length - 1; i > 0; i--) {
-          var j = Math.floor(Math.random() * (i + 1))
-          var t = this.scanned[i]
-          this.scanned[i] = this.scanned[j]
-          this.scanned[j] = t
-        }
-      }
     }
     var target = this.scanned[this.index]
     var url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`
     this.ready(url, target)
     this.index++
-    this.updateTimer = setTimeout(()=>{
-      this.updatePhotos()
-    }, this.config.updateInterval)
+    if (this.index >= this.scanned.length) {
+      this.index = 0
+      this.needMorePicsFlag = true
+    }
+    if (this.needMorePicsFlag) {
+      this.sendSocketNotification("NEED_MORE_PICS", [])
+    }
   },
 
   ready: function(url, target) {
