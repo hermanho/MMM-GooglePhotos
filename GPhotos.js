@@ -245,7 +245,7 @@ class GPhotos {
         var token = client.credentials.access_token
         var list = []
         const getImage = async (pageSize=50, pageToken="") => {
-          this.log("Indexing photos now.")
+          this.log("Indexing photos now. total: ", list.length)
           try {
             var data = {
               "albumId": albumId,

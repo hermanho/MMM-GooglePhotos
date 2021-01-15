@@ -41,10 +41,7 @@ Module.register("MMM-GooglePhotos", {
     this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition)
     this.sendSocketNotification("INIT", this.config)
     this.dynamicPosition = 0
-    //set up timer, more robust against faults
-    this.updateTimer = setTimeout(()=>{
-      this.updatePhotos()
-    }, this.config.updateInterval)
+    
   },
 
   socketNotificationReceived: function(noti, payload) {
@@ -53,12 +50,19 @@ Module.register("MMM-GooglePhotos", {
     }
     if (noti == "INITIALIZED") {
       this.albums = payload
+      //set up timer once initialized, more robust against faults
+      this.updateTimer = setInterval(()=>{
+        this.updatePhotos()
+      }, this.config.updateInterval)
     }
     if (noti == "MORE_PICS") {
       if (payload && Array.isArray(payload) && payload.length > 0)
       this.needMorePicsFlag = false
       this.scanned = payload
       this.index = 0
+      if (this.firstScan) {
+        this.updatePhotos() //little faster starting
+      }
     }
   },
 
@@ -76,10 +80,7 @@ Module.register("MMM-GooglePhotos", {
 
   updatePhotos: function(dir=0) {
     this.firstScan == false
-    //moved this up top. In case it fails, timer is already updated
-    this.updateTimer = setTimeout(()=>{
-      this.updatePhotos()
-    }, this.config.updateInterval)
+    
     if (this.scanned.length == 0) {
       this.sendSocketNotification("NEED_MORE_PICS", [])
       return
