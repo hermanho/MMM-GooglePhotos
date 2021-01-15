@@ -153,7 +153,7 @@ class GPhotos {
     return new Promise((resolve)=>{
       try {
         var url = endPoint
-        var option = {
+        var config = {
           method: method,
           url: url,
           baseURL: 'https://photoslibrary.googleapis.com/v1/',
@@ -161,9 +161,9 @@ class GPhotos {
             Authorization: 'Bearer ' + token
           },
         }
-        if (params) option.params = params
-        if (data) option.data = data
-        Axios(option).then((ret)=>{
+        if (params) config.params = params
+        if (data) config.data = data
+        Axios(config).then((ret)=>{
           resolve(ret)
         }).catch((e)=>{
           this.log(e.toString())
@@ -291,6 +291,44 @@ class GPhotos {
     })
   }
 
+
+  async updateTheseMediaItems(items) {
+    return new Promise((resolve)=>{
+      
+      if (items.length <= 0) {resolve(items)}
+      
+      this.onAuthReady((client)=>{
+        var token = client.credentials.access_token
+        this.log("received: ", items.length, " to refresh") //
+        var list = []          
+        var params = new URLSearchParams();
+        var ii
+        for (ii in items) {
+          params.append("mediaItemIds", items[ii].id)
+        }
+        
+        const refr = async () => { 
+          var response = await this.request(token, 'mediaItems:batchGet', 'get', params, null)
+                   
+          if (response.data.hasOwnProperty("mediaItemResults") && Array.isArray(response.data.mediaItemResults)) {
+            for (var i = 0; i< response.data.mediaItemResults.length; i++) {
+              if (response.data.mediaItemResults[i].hasOwnProperty("mediaItem")){
+                  items[i].baseUrl = response.data.mediaItemResults[i].mediaItem.baseUrl
+              }
+              
+            }
+            
+            resolve(items)
+          }
+        }
+        refr()
+        
+      })
+      
+    })
+  }
+  
+  
   createAlbum(albumName) {
     return new Promise((resolve)=>{
       this.onAuthReady((client)=>{
