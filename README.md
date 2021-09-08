@@ -206,6 +206,13 @@ autoInfoPosition: (album, photo)=> {
 }
 ```
 
+- To shrink image and be fully visible on smaller screens : Add this into your `css/custom.css`.
+```css
+#GPHOTO_CURRENT {
+	background-size:contain;
+}
+```
+
 - To display `clock` more clearly on showing in `fullscreen_below` : Add this into your `css/custom.css`.
 ```css
 .clock {
