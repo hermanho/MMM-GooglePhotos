@@ -74,7 +74,14 @@ node generate_token.js
 11. After consent, some code (`4/ABCD1234xxxx...`) will be appeared. copy it and return to your terminal. paste it for answer of prompt in console.
 12. Check whether `token.json` is created in your `MMM-`
 
+### stop token from expiring every week
+-as of 2021, it appears tokens only last 1 week while in 'testing'. This led to users needing to get a new token.json every ~week to 10 days. To get your app out of testing mode, where the token will last indefinately:
 
+1. go to your google cloud console, select your magic mirror project. Then from the navigation menu(top left) -> APIs & Services -> Oath consent screen. This should get you to a site something like https://console.cloud.google.com/apis/credentials/consent?project=[PROJECT_ID] where [PROJECT_ID] is the project ID. This is where the publishing status. It looks like this:
+
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/PublishAppScreen.png)
+
+2. click Publish app and review permissions as necessary.
 
 
 ## Configuration
@@ -235,6 +242,8 @@ autoInfoPosition: (album, photo)=> {
 
 ## Notice
 - First scanning will take a few (~dozens) seconds. Don't panic.
+- If there are 1000s of photos, this scan could take minutes(over 10). longer scans increase the probablity of an error happening. If a single error happens in the scan, it will retry after 1 hour. After first successful scan, subsequent startups should go very quickly(seconds).
+- 
 
 
 ## Last Tested;
