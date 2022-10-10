@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.0",
-    "axios": "^0.19.2",
+    "axios": "^0.21.2",
     "google-auth-library": "^1.6.1",
     "open": "^6.3.0"
   },
