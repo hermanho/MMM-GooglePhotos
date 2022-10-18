@@ -7,6 +7,9 @@ Display your photos from album of Google Photos on MagicMirror
 ![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
+**`[2.0.3] - 2022/10/18`**
+- Changed: Update dependency packages to fix vulnerability.
+
 **`[2.0.2] - 2020/04/01`**
 - Added: `autoInfoPosition` - For preventing LCD burning, Photo info can be relocated by condition.
     - `true` : automatically change position to each corner per 15 minutes.
