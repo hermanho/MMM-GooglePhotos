@@ -45,6 +45,9 @@ module.exports = NodeHelper.create({
         this.log("Used last pic in list")
         this.prepAndSendChunk(Math.ceil(20*60*1000/this.config.updateInterval))// 20min * 60s * 1000ms / updateinterval in ms
         break
+      case 'MODULE_SUSPENDED_SKIP_UPDATE':
+        this.log("Module is suspended so skip the UI update")
+        break
     }
   },
 

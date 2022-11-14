@@ -25,6 +25,8 @@ Module.register("MMM-GooglePhotos", {
     autoInfoPosition: false,
   },
 
+	suspended: false,
+
   getStyles: function() {
     return ["MMM-GooglePhotos.css"]
   },
@@ -84,6 +86,12 @@ Module.register("MMM-GooglePhotos", {
     if (this.scanned.length == 0) {
       this.sendSocketNotification("NEED_MORE_PICS", [])
       return
+    }
+    if (this.suspended) {
+      this.sendSocketNotification("MODULE_SUSPENDED_SKIP_UPDATE")
+      var info = document.getElementById("GPHOTO_INFO")
+      info.innerHTML = ""
+      return;
     }
     this.index = this.index + dir //only used for reversing
     if (this.index < 0) this.index = 0
@@ -192,4 +200,12 @@ Module.register("MMM-GooglePhotos", {
     console.log("updated!")
     return wrapper
   },
+
+	suspend() {
+		this.suspended = true;
+	},
+
+	resume() {
+		this.suspended = false;
+	},
 })
