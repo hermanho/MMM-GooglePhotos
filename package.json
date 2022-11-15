@@ -5,6 +5,7 @@
   "license": "MIT",
   "author": "eouia0819@gmail.com",
   "scripts": {
+		"install-prod": "npm install --no-audit --no-fund --no-update-notifier --only=prod --omit=dev",
     "lint:js": "eslint **/*.js --config .eslintrc.json --fix"
   },
   "repository": {
