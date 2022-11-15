@@ -7,6 +7,9 @@ Display your photos from album of Google Photos on MagicMirror
 ![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
+**`[2.0.3] - 2022/10/18`**
+- Changed: Update dependency packages to fix vulnerability.
+
 **`[2.0.2] - 2020/04/01`**
 - Added: `autoInfoPosition` - For preventing LCD burning, Photo info can be relocated by condition.
     - `true` : automatically change position to each corner per 15 minutes.
@@ -53,28 +56,35 @@ docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror npm i
 
 
 ### Get `token.json`
-1. Go to [Google API Console](https://console.developers.google.com/)
-2. From the menu bar, select a project or create a new project.
-3. To open the Google API Library, from the Navigation menu, select `APIs & Services > Library`.
+1. Clone this repo in your local pc and execute `npm install`
+2. Go to [Google API Console](https://console.developers.google.com/)
+3. From the menu bar, select a project or create a new project.
+4. To open the Google API Library, from the Navigation menu, select `APIs & Services > Library`.
 	 Don't forget to enble the Google API Services.
-4. Search for "Google Photos Library API". Select the correct result and click Enable. (You may need to enable "Google Plus" also.)
-5. Then, from the menu, select `APIs & Services > Credentials`.
-6. On the Credentials page, click `Create Credentials > OAuth client ID`.
-7. Select your Application type as **`Other`**(IMPORTANT!!!) and submit. (Before or After that, you might be asked for making consent screen. do that.)
-> Google might change the menu name. So current this would work;
-![](https://user-images.githubusercontent.com/1720610/77527670-d9fdff00-6e8c-11ea-9e9f-59c7eabc6db9.png)
+5. Search for "Google Photos Library API". Select the correct result and click Enable. (You may need to enable "Google Plus" also.)
+6. Then, from the menu, select `APIs & Services > Credentials`.
+7. On the Credentials page, click `Create Credentials > OAuth client ID`.
+8. Select your Application type as **`Desktop app`**(IMPORTANT!!!) and submit. (Before or After that, you might be asked for making consent screen. do that.)
+> Google might change the menu name. So current this would work; ![2022-09-18_18-49-03](https://user-images.githubusercontent.com/2337380/190921355-49162763-0fdd-4b7e-a361-d762046f844d.png)
 
-8. Then, you can download your credential json file from list. Downloaded file name would be `client_secret_xxxx...xxx.json`. rename it as `credentials.json` and save it to your `MMM-GooglePhotos` directory.
-9. Now, open your termial(not via SSH, directly in your RPI).
+9. Then, you can download your credential json file from list. Downloaded file name would be `client_secret_xxxx...xxx.json`. rename it as `credentials.json` and save it to your `MMM-GooglePhotos` directory.
+10. Now, open your termial
 ```shell
 cd ~/MagicMirror/modules/MMM-GooglePhotos
-node generate_token.js
+node generate_token_v2.js
 ```
 10. At first execution, It will open a browser and will ask you to login google account and to consent your allowance.
-11. After consent, some code (`4/ABCD1234xxxx...`) will be appeared. copy it and return to your terminal. paste it for answer of prompt in console.
-12. Check whether `token.json` is created in your `MMM-`
+11. Authorize it and close the browser
+12. Copy the file `token.json` and `credentials.json` to the folder `MMM-GooglePhotos` in the remote device
 
+### stop token from expiring every week
+-as of 2021, it appears tokens only last 1 week while in 'testing'. This led to users needing to get a new token.json every ~week to 10 days. To get your app out of testing mode, where the token will last indefinately:
 
+1. go to your google cloud console, select your magic mirror project. Then from the navigation menu(top left) -> APIs & Services -> Oath consent screen. This should get you to a site something like https://console.cloud.google.com/apis/credentials/consent?project=[PROJECT_ID] where [PROJECT_ID] is the project ID. This is where the publishing status. It looks like this:
+
+![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/PublishAppScreen.png)
+
+2. click Publish app and review permissions as necessary.
 
 
 ## Configuration
@@ -206,6 +216,13 @@ autoInfoPosition: (album, photo)=> {
 }
 ```
 
+- To shrink image and be fully visible on smaller screens : Add this into your `css/custom.css`.
+```css
+#GPHOTO_CURRENT {
+	background-size:contain;
+}
+```
+
 - To display `clock` more clearly on showing in `fullscreen_below` : Add this into your `css/custom.css`.
 ```css
 .clock {
@@ -228,6 +245,8 @@ autoInfoPosition: (album, photo)=> {
 
 ## Notice
 - First scanning will take a few (~dozens) seconds. Don't panic.
+- If there are 1000s of photos, this scan could take minutes(over 10). longer scans increase the probablity of an error happening. If a single error happens in the scan, it will retry after 1 hour. After first successful scan, subsequent startups should go very quickly(seconds).
+- 
 
 
 ## Last Tested;
