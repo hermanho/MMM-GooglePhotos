@@ -81,7 +81,7 @@ Module.register("MMM-GooglePhotos", {
   },
 
   updatePhotos: function(dir=0) {
-    this.firstScan == false
+    this.firstScan = false
     
     if (this.scanned.length == 0) {
       this.sendSocketNotification("NEED_MORE_PICS", [])
