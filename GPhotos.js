@@ -124,6 +124,10 @@ class GPhotos {
     if (this.debug) console.log("[GPHOTOS:CORE]", ...args)
   }
 
+  logError(...args) {
+    if (this.debug) console.error("[GPHOTOS:CORE]", ...args)
+  }
+
   onAuthReady(job=()=>{}) {
     var auth = null
     try {
@@ -166,7 +170,8 @@ class GPhotos {
         Axios(config).then((ret)=>{
           resolve(ret)
         }).catch((e)=>{
-          this.log(e.toString())
+          this.logError("request fail with URL", url)
+          this.logError(e.toString())
           throw e
         })
       } catch (error) {
