@@ -9,9 +9,10 @@
     "url": "https://github.com/eouia/MMM-GooglePhotos"
   },
   "dependencies": {
-    "axios": ">=0.21.1",
-    "google-auth-library": "^1.6.1",
-    "open": "^6.3.0"
+    "@google-cloud/local-auth": "^2.1.1",
+    "axios": "^1.1.3",
+    "google-auth-library": "^8.7.0",
+    "open": "^8.4.0"
   },
   "devDependencies": {
     "electron-rebuild": "^1.8.2"
