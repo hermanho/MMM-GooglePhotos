@@ -4,9 +4,12 @@
   "description": "MagicMirror module for Google Photos",
   "license": "MIT",
   "author": "eouia0819@gmail.com",
+  "scripts": {
+    "lint:js": "eslint **/*.js --config .eslintrc.json --fix"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/eouia/MMM-GooglePhotos"
+    "url": "https://github.com/hermanho/MMM-GooglePhotos"
   },
   "dependencies": {
     "@google-cloud/local-auth": "^2.1.1",
@@ -15,6 +18,11 @@
     "open": "^8.4.0"
   },
   "devDependencies": {
-    "electron-rebuild": "^1.8.2"
+    "electron-rebuild": "^1.8.2",
+    "eslint": "^8.24.0",
+		"eslint-config-prettier": "^8.5.0",
+		"eslint-plugin-jest": "^27.0.4",
+		"eslint-plugin-jsdoc": "^39.3.6",
+		"eslint-plugin-prettier": "^4.2.1"
   }
 }
