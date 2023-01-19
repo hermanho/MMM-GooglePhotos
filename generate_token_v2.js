@@ -1,7 +1,7 @@
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const mkdirp = require("mkdirp");
+const { mkdirp } = require("mkdirp");
 const { authenticate } = require("@google-cloud/local-auth");
 const config = require("./google_auth.json");
 
@@ -18,10 +18,9 @@ async function generate() {
   if (client.credentials && config.savedTokensPath) {
     if (config.savedTokensPath) {
       const tp = path.resolve(__dirname, config.savedTokensPath);
-      mkdirp(path.dirname(tp), () => {
-        fs.writeFileSync(tp, JSON.stringify(client.credentials));
-        console.log("Token is generated. check it. (ls -al)");
-      });
+      await mkdirp(path.dirname(tp));
+      fs.writeFileSync(tp, JSON.stringify(client.credentials));
+      console.log("Token is generated. check it. (ls -al)");
     }
   }
 }

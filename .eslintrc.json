@@ -24,7 +24,7 @@
   },
   "parserOptions": {
     "sourceType": "module",
-    "ecmaVersion": 2020,
+    "ecmaVersion": 13,
     "ecmaFeatures": {
       "globalReturn": true
     }
@@ -35,6 +35,7 @@
     "no-prototype-builtins": "off",
     "no-unused-vars": "off",
     "no-useless-return": "error",
-    "no-var": "error"
+    "no-var": "error",
+    "jsdoc/require-returns": "off"
   }
 }

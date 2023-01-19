@@ -6,7 +6,7 @@ const opn = require("open");
 const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
-const mkdirp = require("mkdirp");
+const { mkdirp } = require("mkdirp");
 const { OAuth2Client } = require("google-auth-library");
 const Axios = require("axios");
 const moment = require("moment");
@@ -20,99 +20,105 @@ function sleep(ms = 1000) {
     setTimeout(resolve, ms);
   });
 }
-/**
- *
- * @param config
- * @param debug
- */
-function Auth(config, debug = false) {
-  const log = debug
-    ? (...args) => {
-        console.log("[GPHOTOS:AUTH]", ...args);
-      }
-    : () => {};
-  if (config === undefined) config = {};
-  if (config.keyFilePath === undefined) {
-    throw new Error('Missing "keyFilePath" from config (This should be where your Credential file is)');
-  }
-  if (config.savedTokensPath === undefined) {
-    throw new Error('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)');
-  }
-  let creds = path.resolve(__dirname, config.keyFilePath);
-  if (!fs.existsSync(creds)) {
-    throw new Error("Missing Credentials.");
-  }
-  const key = require(config.keyFilePath).installed;
-  const oauthClient = new OAuth2Client(key.client_id, key.client_secret, key.redirect_uris[0]);
-  let tokens;
-  const saveTokens = (first = false) => {
-    oauthClient.setCredentials(tokens);
-    let expired = false;
-    let now = Date.now();
-    if (tokens.expiry_date < Date.now()) {
-      expired = true;
-      log("Token is expired.");
-    }
-    if (expired || first) {
-      oauthClient.refreshAccessToken().then((tk) => {
-        tokens = tk.credentials;
-        let tp = path.resolve(__dirname, config.savedTokensPath);
-        mkdirp(path.dirname(tp), () => {
-          fs.writeFileSync(tp, JSON.stringify(tokens));
-          log("Token is refreshed.");
-          this.emit("ready", oauthClient);
-        });
-      });
-    } else {
-      log("Token is alive.");
-      this.emit("ready", oauthClient);
-    }
-  };
 
-  const getTokens = () => {
-    const url = oauthClient.generateAuthUrl({
-      access_type: "offline",
-      scope: [config.scope],
-    });
-    log("Opening OAuth URL.\n\n" + url + "\n\nReturn here with your code.");
-    opn(url).catch(() => {
-      log("Failed to automatically open the URL. Copy/paste this in your browser:\n", url);
-    });
-    if (typeof config.tokenInput === "function") {
-      config.tokenInput(processTokens);
-      return;
+class Auth extends EventEmitter {
+  #config;
+  #debug = {};
+
+  constructor(config, debug = false) {
+    super();
+    this.#config = config;
+    this.#debug = debug;
+    this.init();
+  }
+
+  async init() {
+    const log = this.#debug
+      ? (...args) => {
+          console.log("[GPHOTOS:AUTH]", ...args);
+        }
+      : () => {};
+    if (this.#config === undefined) config = {};
+    if (this.#config.keyFilePath === undefined) {
+      throw new Error('Missing "keyFilePath" from config (This should be where your Credential file is)');
     }
-    const reader = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      terminal: false,
-    });
-    reader.question("> Paste your code: ", processTokens);
-  };
-  const processTokens = (oauthCode) => {
-    if (!oauthCode) process.exit(-1);
-    oauthClient.getToken(oauthCode, (error, tkns) => {
-      if (error) throw new Error("Error getting tokens:", error);
-      tokens = tkns;
-      saveTokens(true);
-    });
-  };
-  process.nextTick(() => {
-    if (config.savedTokensPath) {
-      try {
-        let file = path.resolve(__dirname, config.savedTokensPath);
-        const tokensFile = fs.readFileSync(file);
-        tokens = JSON.parse(tokensFile);
-      } catch (error) {
-        getTokens();
-      } finally {
-        if (tokens !== undefined) saveTokens();
+    if (this.#config.savedTokensPath === undefined) {
+      throw new Error('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)');
+    }
+    let creds = path.resolve(__dirname, this.#config.keyFilePath);
+    if (!fs.existsSync(creds)) {
+      throw new Error("Missing Credentials.");
+    }
+    const key = require(this.#config.keyFilePath).installed;
+    const oauthClient = new OAuth2Client(key.client_id, key.client_secret, key.redirect_uris[0]);
+    let tokensCred;
+    const saveTokens = async (first = false) => {
+      oauthClient.setCredentials(tokensCred);
+      let expired = false;
+      let now = Date.now();
+      if (tokensCred.expiry_date < Date.now()) {
+        expired = true;
+        log("Token is expired.");
       }
-    }
-  });
-  return this;
+      if (expired || first) {
+        const tk = await oauthClient.refreshAccessToken();
+        tokensCred = tk.credentials;
+        let tp = path.resolve(__dirname, this.#config.savedTokensPath);
+        await mkdirp(path.dirname(tp));
+        fs.writeFileSync(tp, JSON.stringify(tokensCred));
+        log("Token is refreshed.");
+        this.emit("ready", oauthClient);
+      } else {
+        log("Token is alive.");
+        this.emit("ready", oauthClient);
+      }
+    };
+
+    const getTokens = () => {
+      const url = oauthClient.generateAuthUrl({
+        access_type: "offline",
+        scope: [this.#config.scope],
+      });
+      log("Opening OAuth URL.\n\n" + url + "\n\nReturn here with your code.");
+      opn(url).catch(() => {
+        log("Failed to automatically open the URL. Copy/paste this in your browser:\n", url);
+      });
+      if (typeof this.#config.tokenInput === "function") {
+        this.#config.tokenInput(processTokens);
+        return;
+      }
+      const reader = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+        terminal: false,
+      });
+      reader.question("> Paste your code: ", processTokens);
+    };
+    const processTokens = async (oauthCode) => {
+      if (!oauthCode) process.exit(-1);
+      try {
+        const tkns = await oauthClient.getToken(oauthCode);
+        tokensCred = tkns;
+        await saveTokens(true);
+      } catch (error) {
+        throw new Error("Error getting tokens:", error);
+      }
+    };
+    process.nextTick(() => {
+      if (this.#config.savedTokensPath) {
+        try {
+          let file = path.resolve(__dirname, this.#config.savedTokensPath);
+          const tokensFile = fs.readFileSync(file);
+          tokensCred = JSON.parse(tokensFile);
+        } catch (error) {
+          getTokens();
+        } finally {
+          if (tokensCred !== undefined) saveTokens();
+        }
+      }
+    });
+  }
 }
-util.inherits(Auth, EventEmitter);
 
 class GPhotos {
   constructor(options) {
