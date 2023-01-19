@@ -7,8 +7,9 @@ Display your photos from album of Google Photos on MagicMirror
 ![](https://raw.githubusercontent.com/eouia/MMM-GooglePhotos/master/sc2.png)
 
 ## New Updates
-**`[2.0.4] - 2023/01/19`**
+**`[2.1.0] - 2023/01/19`**
 - Changed: Update dependency packages to fix vulnerability.
+- Fixed: #156 Change mkdirp to promise syntax.
 
 **`[2.0.3] - 2022/10/18`**
 - Changed: Update dependency packages to fix vulnerability.
