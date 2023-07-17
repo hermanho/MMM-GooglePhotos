@@ -1,5 +1,8 @@
 # MMM-GooglePhotos Change Log
 
+**`[2.1.1] - 2023/07/17`**
+- Changed: Update dependency packages to fix vulnerability.
+
 **`[2.1.0] - 2023/01/19`**
 - Changed: Update dependency packages to fix vulnerability.
 - Fixed: Change mkdirp to promise syntax (#156)
