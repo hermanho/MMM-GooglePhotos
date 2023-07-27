@@ -22,9 +22,9 @@
   "devDependencies": {
     "electron-rebuild": "^3.2.9",
     "eslint": "^8.45.0",
-    "eslint-config-prettier": "^8.6.0",
-    "eslint-plugin-jest": "^27.2.1",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-plugin-jest": "^27.2.3",
     "eslint-plugin-jsdoc": "^46.4.4",
-    "eslint-plugin-prettier": "^4.2.1"
+    "eslint-plugin-prettier": "^5.0.0"
   }
 }

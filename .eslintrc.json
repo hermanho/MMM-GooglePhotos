@@ -36,6 +36,7 @@
     "no-unused-vars": "off",
     "no-useless-return": "error",
     "no-var": "error",
-    "jsdoc/require-returns": "off"
+    "jsdoc/require-returns": "off",
+    "semi": "error"
   }
 }
