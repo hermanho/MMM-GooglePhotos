@@ -155,18 +155,6 @@ class GPhotos {
     });
   }
 
-  generateToken(success = () => {}, fail = () => {}) {
-    this.onAuthReady((client) => {
-      const isTokenFileExist = () => {
-        let fp = path.resolve(__dirname, this.options.authOption.savedTokensPath);
-        if (fs.existsSync(fp)) return true;
-        return false;
-      };
-      if (isTokenFileExist()) success();
-      fail();
-    });
-  }
-
   request(token, endPoint = "", method = "get", params = null, data = null) {
     return new Promise((resolve) => {
       try {
