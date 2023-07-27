@@ -5,11 +5,31 @@ const { mkdirp } = require("mkdirp");
 const { authenticate } = require("@google-cloud/local-auth");
 const config = require("./google_auth.json");
 
+function testKeyFile(keyFilePath) {
+  if (!fs.existsSync(keyFilePath)) {
+    throw new Error(
+      `keyfile ${keyFilePath} does not exists`
+    );
+  }
+  try {
+    const keyFile = JSON.parse(fs.readFileSync(keyFilePath, 'utf8'));
+    const keys = keyFile.installed || keyFile.web;
+    if (!keys) {
+      throw new Error()
+    }
+  } catch (err) {
+    throw new Error(
+      `keyfile ${keyFilePath} is not a valid GCP credential keyfile`
+    );
+  }
+}
+
 /**
  *
  */
 async function generate() {
   const keyFilePath = path.resolve(__dirname, config.keyFilePath);
+  testKeyFile(keyFilePath);
   const client = await authenticate({
     keyfilePath: keyFilePath,
     scopes: [config.scope],
