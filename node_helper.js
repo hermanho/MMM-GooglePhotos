@@ -34,13 +34,15 @@ module.exports = NodeHelper.create({
         this.upload(payload);
         break;
       case "IMAGE_LOAD_FAIL":
-        const { url, event, source, lineno, colno, error } = payload;
-        console.debug("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
-        if (error) {
-          console.debug("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+        {
+          const { url, event, source, lineno, colno, error } = payload;
+          console.debug("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
+          if (error) {
+            console.debug("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+          }
+          this.log("Image loading fails. Check your network.:", url);
+          this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
         }
-        this.log("Image loading fails. Check your network.:", url);
-        this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
         break;
       case "IMAGE_LOADED":
         this.log("Image loaded:", payload);
@@ -90,9 +92,12 @@ module.exports = NodeHelper.create({
   tryToIntitialize: async function () {
     //set timer, in case if fails to retry in 1 min
     clearTimeout(this.initializeTimer);
-    this.initializeTimer = setTimeout(() => {
-      this.tryToIntitialize();
-    }, 1 * 60 * 1000);
+    this.initializeTimer = setTimeout(
+      () => {
+        this.tryToIntitialize();
+      },
+      1 * 60 * 1000,
+    );
 
     this.log("Starting Initialization");
     this.log("Getting album list");
