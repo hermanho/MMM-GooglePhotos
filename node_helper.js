@@ -34,7 +34,12 @@ module.exports = NodeHelper.create({
         this.upload(payload);
         break;
       case "IMAGE_LOAD_FAIL":
-        this.log("Image loading fails. Check your network.:", payload);
+        const { url, event, source, lineno, colno, error } = payload;
+        console.debug("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
+        if (error) {
+          console.debug("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+        }
+        this.log("Image loading fails. Check your network.:", url);
         this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
         break;
       case "IMAGE_LOADED":

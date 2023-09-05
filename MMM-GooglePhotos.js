@@ -111,9 +111,9 @@ Module.register("MMM-GooglePhotos", {
 
   ready: function (url, target) {
     let hidden = document.createElement("img");
-    hidden.onerror = () => {
-      console.log("[GPHOTO] Image load fails.");
-      this.sendSocketNotification("IMAGE_LOAD_FAIL", url);
+    hidden.onerror = (event, source, lineno, colno, error) => {
+      const errObj = { url, event, source, lineno, colno, error };
+      this.sendSocketNotification("IMAGE_LOAD_FAIL", errObj);
     };
     hidden.onload = () => {
       let back = document.getElementById("GPHOTO_BACK");
