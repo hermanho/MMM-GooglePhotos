@@ -30,7 +30,12 @@
     }
   },
   "rules": {
-    "prettier/prettier": "error",
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ],
     "eqeqeq": "error",
     "no-prototype-builtins": "off",
     "no-unused-vars": "off",

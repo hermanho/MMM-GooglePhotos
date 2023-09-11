@@ -7,6 +7,9 @@ const moment = require("moment");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
 
+/**
+ * @type {GP}
+ */
 let GPhotos = null;
 
 let NodeHelper = require("node_helper");
