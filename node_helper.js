@@ -29,6 +29,7 @@ module.exports = NodeHelper.create({
     this.queue = null;
     this.uploadAlbumId;
     this.initializeTimer = null;
+    this.fetchingImageList = false;
   },
 
   socketNotificationReceived: function (notification, payload) {
@@ -48,7 +49,7 @@ module.exports = NodeHelper.create({
             console.error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
           }
           console.error("Image loading fails. Check your network.:", url);
-          this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
+          this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
       case "IMAGE_LOADED":
@@ -56,7 +57,7 @@ module.exports = NodeHelper.create({
         break;
       case "NEED_MORE_PICS":
         this.log("Used last pic in list");
-        this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
+        this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         break;
       case "MODULE_SUSPENDED_SKIP_UPDATE":
         this.log("Module is suspended so skip the UI update");
@@ -153,7 +154,7 @@ module.exports = NodeHelper.create({
       this.localPhotoList = JSON.parse(data.toString());
       shuffle(this.localPhotoList);
       this.log("successfully loaded cache of ", this.localPhotoList.length, " photos");
-      this.prepAndSendChunk(5); //only 5 for extra fast startup
+      await this.prepAndSendChunk(5); //only 5 for extra fast startup
     } catch (err) {
       this.log("unable to load cache", err);
     }
@@ -237,6 +238,7 @@ module.exports = NodeHelper.create({
   },
 
   getImageList: async function () {
+    this.fetchingImageList = true;
     let condition = this.config.condition;
     let photoCondition = (photo) => {
       if (!photo.hasOwnProperty("mediaMetadata")) return false;
@@ -291,6 +293,7 @@ module.exports = NodeHelper.create({
         this.log(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
         this.localPhotoPntr = 0;
+        this.prepAndSendChunk(50).then();
         try {
           await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
           this.log("Photo list cache saved");
@@ -303,6 +306,8 @@ module.exports = NodeHelper.create({
     } catch (err) {
       this.log(err.toString());
       console.log(err);
+    } finally {
+      this.fetchingImageList = false;
     }
   },
 
