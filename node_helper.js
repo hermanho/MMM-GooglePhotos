@@ -1,11 +1,13 @@
 "use strict";
 
 const fs = require("fs");
+const { writeFile, readFile } = require("fs/promises");
 const path = require("path");
-const https = require("https");
 const moment = require("moment");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
+const { Readable } = require("stream");
+const { finished } = require("stream/promises");
 
 /**
  * @type {GP}
@@ -13,6 +15,7 @@ const authOption = require("./google_auth.json");
 let GPhotos = null;
 
 let NodeHelper = require("node_helper");
+const { shuffle } = require("./shuffle.js");
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -29,6 +32,7 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived: function (notification, payload) {
+    this.log("[GPHOTO] node_helper notification", notification);
     switch (notification) {
       case "INIT":
         this.initializeAfterLoading(payload);
@@ -64,21 +68,18 @@ module.exports = NodeHelper.create({
     if (this.debug) console.log("[GPHOTOS]", ...args);
   },
 
-  upload: function (path) {
+  upload: async function (path) {
     if (!this.uploadAlbumId) {
       this.log("No uploadable album exists.");
       return;
     }
-    const step = async () => {
-      let uploadToken = await GPhotos.upload(path);
-      if (uploadToken) {
-        let result = await GPhotos.create(uploadToken, this.uploadAlbumId);
-        this.log("Upload completed.");
-      } else {
-        this.log("Upload Fails.");
-      }
-    };
-    step();
+    let uploadToken = await GPhotos.upload(path);
+    if (uploadToken) {
+      let result = await GPhotos.create(uploadToken, this.uploadAlbumId);
+      this.log("Upload completed.");
+    } else {
+      this.log("Upload Fails.");
+    }
   },
 
   initializeAfterLoading: function (config) {
@@ -140,23 +141,22 @@ module.exports = NodeHelper.create({
       let url = a.coverPhotoBaseUrl + "=w160-h160-c";
       let fpath = path.resolve(__dirname, "cache", a.id);
       let file = fs.createWriteStream(fpath);
-      const request = https.get(url, (response) => {
-        response.pipe(file);
-      });
+      const response = await fetch(url);
+      await finished(Readable.fromWeb(response.body).pipe(file));
     }
     this.log("Initialized");
     this.sendSocketNotification("INITIALIZED", this.albums);
 
     //load cached list - if available
-    fs.readFile(this.path + "/cache/photoListCache.json", "utf-8", (err, data) => {
-      if (err) {
-        this.log("unable to load cache", err);
-      } else {
-        this.localPhotoList = JSON.parse(data.toString());
-        this.log("successfully loaded cache of ", this.localPhotoList.length, " photos");
-        this.prepAndSendChunk(5); //only 5 for extra fast startup
-      }
-    });
+    try {
+      const data = await readFile(this.path + "/cache/photoListCache.json", "utf-8");
+      this.localPhotoList = JSON.parse(data.toString());
+      shuffle(this.localPhotoList);
+      this.log("successfully loaded cache of ", this.localPhotoList.length, " photos");
+      this.prepAndSendChunk(5); //only 5 for extra fast startup
+    } catch (err) {
+      this.log("unable to load cache", err);
+    }
 
     this.log("Initialization complete!");
     clearTimeout(this.initializeTimer);
@@ -199,19 +199,14 @@ module.exports = NodeHelper.create({
     }
   },
 
-  getAlbums: function () {
-    return new Promise((resolve) => {
-      const step = async () => {
-        try {
-          let r = await GPhotos.getAlbums();
-          resolve(r);
-        } catch (err) {
-          this.log(err.toString());
-          console.log(err);
-        }
-      };
-      step();
-    });
+  getAlbums: async function () {
+    try {
+      let r = await GPhotos.getAlbums();
+      return r;
+    } catch (err) {
+      this.log(err.toString());
+      console.log(err);
+    }
   },
 
   startScanning: function () {
@@ -224,29 +219,24 @@ module.exports = NodeHelper.create({
     this.scanJob();
   },
 
-  scanJob: function () {
-    return new Promise((resolve) => {
-      this.log("Start Album scanning");
-      this.queue = null;
-      const step = async () => {
-        try {
-          if (this.albums.length > 0) {
-            this.photos = await this.getImageList();
-            resolve(true);
-          } else {
-            this.log("There is no album to get photos.");
-            resolve(false);
-          }
-        } catch (err) {
-          this.log(err.toString());
-          console.log(err);
-        }
-      };
-      step();
-    });
+  scanJob: async function () {
+    this.log("Start Album scanning");
+    this.queue = null;
+    try {
+      if (this.albums.length > 0) {
+        this.photos = await this.getImageList();
+        return true;
+      } else {
+        this.log("There is no album to get photos.");
+        return false;
+      }
+    } catch (err) {
+      this.log(err.toString());
+      console.log(err);
+    }
   },
 
-  getImageList: function () {
+  getImageList: async function () {
     let condition = this.config.condition;
     let photoCondition = (photo) => {
       if (!photo.hasOwnProperty("mediaMetadata")) return false;
@@ -265,59 +255,54 @@ module.exports = NodeHelper.create({
       if (condition.maxWHRatio && Number(condition.maxWHRatio) < whr) return false;
       return true;
     };
-    let sort = (a, b) => {
-      let at = moment(a.mediaMetadata.creationTime);
-      let bt = moment(b.mediaMetadata.creationTime);
-      if (at.isBefore(bt) && this.config.sort === "new") return 1;
-      if (at.isAfter(bt) && this.config.sort === "old") return 1;
-      return -1;
-    };
-    return new Promise((resolve) => {
-      const step = async () => {
-        let photos = [];
-        try {
-          for (let album of this.albums) {
-            this.log(`Prepping to get photo list from '${album.title}'`);
-            let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
-            this.log(`Got ${list.length} photo(s) from '${album.title}'`);
-            photos = photos.concat(list);
+    // let sort = (a, b) => {
+    //   let at = moment(a.mediaMetadata.creationTime);
+    //   let bt = moment(b.mediaMetadata.creationTime);
+    //   if (at.isBefore(bt) && this.config.sort === "new") return 1;
+    //   if (at.isAfter(bt) && this.config.sort === "old") return 1;
+    //   return -1;
+    // };
+    let photos = [];
+    try {
+      for (let album of this.albums) {
+        this.log(`Prepping to get photo list from '${album.title}'`);
+        let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
+        this.log(`Got ${list.length} photo(s) from '${album.title}'`);
+        photos = photos.concat(list);
+      }
+      if (photos.length > 0) {
+        if (this.config.sort === "new" || this.config.sort === "old") {
+          photos.sort((a, b) => {
+            let at = moment(a.mediaMetadata.creationTime);
+            let bt = moment(b.mediaMetadata.creationTime);
+            if (at.isBefore(bt) && this.config.sort === "new") return 1;
+            if (at.isAfter(bt) && this.config.sort === "old") return 1;
+            return -1;
+          });
+        } else {
+          for (let i = photos.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            let t = photos[i];
+            photos[i] = photos[j];
+            photos[j] = t;
           }
-          if (photos.length > 0) {
-            if (this.config.sort === "new" || this.config.sort === "old") {
-              photos.sort((a, b) => {
-                let at = moment(a.mediaMetadata.creationTime);
-                let bt = moment(b.mediaMetadata.creationTime);
-                if (at.isBefore(bt) && this.config.sort === "new") return 1;
-                if (at.isAfter(bt) && this.config.sort === "old") return 1;
-                return -1;
-              });
-            } else {
-              for (let i = photos.length - 1; i > 0; i--) {
-                let j = Math.floor(Math.random() * (i + 1));
-                let t = photos[i];
-                photos[i] = photos[j];
-                photos[j] = t;
-              }
-            }
-            this.log(`Total indexed photos: ${photos.length}`);
-            this.localPhotoList = photos;
-            fs.writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(this.localPhotoList, null, 4), (err) => {
-              if (err) {
-                this.log(err);
-              } else {
-                this.log("Photo list cache saved");
-              }
-            });
-          }
-
-          return photos;
-        } catch (err) {
-          this.log(err.toString());
-          console.log(err);
         }
-      };
-      resolve(step());
-    });
+        this.log(`Total indexed photos: ${photos.length}`);
+        this.localPhotoList = [...photos];
+        this.localPhotoPntr = 0;
+        try {
+          await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
+          this.log("Photo list cache saved");
+        } catch (err) {
+          this.log(err);
+        }
+      }
+
+      return photos;
+    } catch (err) {
+      this.log(err.toString());
+      console.log(err);
+    }
   },
 
   stop: function () {
