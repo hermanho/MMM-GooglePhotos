@@ -167,7 +167,7 @@ Module.register("MMM-GooglePhotos", {
       infoText.appendChild(photoTime);
       info.appendChild(infoText);
       console.log("[GPHOTO] Image loaded:", url);
-      this.sendSocketNotification("IMAGE_LOADED", url);
+      this.sendSocketNotification("IMAGE_LOADED", { url, index: this.index });
     };
     hidden.src = url;
   },
