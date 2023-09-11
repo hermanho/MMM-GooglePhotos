@@ -280,12 +280,13 @@ module.exports = NodeHelper.create({
             return -1;
           });
         } else {
-          for (let i = photos.length - 1; i > 0; i--) {
-            let j = Math.floor(Math.random() * (i + 1));
-            let t = photos[i];
-            photos[i] = photos[j];
-            photos[j] = t;
-          }
+          // for (let i = photos.length - 1; i > 0; i--) {
+          //   let j = Math.floor(Math.random() * (i + 1));
+          //   let t = photos[i];
+          //   photos[i] = photos[j];
+          //   photos[j] = t;
+          // }
+          shuffle(photos);
         }
         this.log(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
