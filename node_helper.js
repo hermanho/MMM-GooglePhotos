@@ -32,7 +32,7 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived: function (notification, payload) {
-    this.log("[GPHOTO] node_helper notification", notification);
+    this.log("notification received", notification);
     switch (notification) {
       case "INIT":
         this.initializeAfterLoading(payload);
@@ -43,11 +43,11 @@ module.exports = NodeHelper.create({
       case "IMAGE_LOAD_FAIL":
         {
           const { url, event, source, lineno, colno, error } = payload;
-          this.log("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
+          console.error("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
           if (error) {
-            this.log("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+            console.error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
           }
-          this.log("Image loading fails. Check your network.:", url);
+          console.error("Image loading fails. Check your network.:", url);
           this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
@@ -65,7 +65,7 @@ module.exports = NodeHelper.create({
   },
 
   log: function (...args) {
-    if (this.debug) console.log("[GPHOTOS]", ...args);
+    if (this.debug) console.log("[GPHOTOS] [node_helper]", ...args);
   },
 
   upload: async function (path) {
@@ -265,7 +265,7 @@ module.exports = NodeHelper.create({
     let photos = [];
     try {
       for (let album of this.albums) {
-        this.log(`Prepping to get photo list from '${album.title}'`);
+        this.log(`Prepare to get photo list from '${album.title}'`);
         let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
         this.log(`Got ${list.length} photo(s) from '${album.title}'`);
         photos = photos.concat(list);
