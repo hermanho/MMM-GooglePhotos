@@ -42,6 +42,7 @@
     "no-useless-return": "error",
     "no-var": "error",
     "jsdoc/require-returns": "off",
+    "jsdoc/require-param-description": "off",
     "semi": "error"
   }
 }

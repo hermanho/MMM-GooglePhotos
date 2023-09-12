@@ -235,7 +235,16 @@ class GPhotos {
   async getImageFromAlbum(albumId, isValid = null, maxNum = 99999) {
     const client = await this.onAuthReady();
     let token = client.credentials.access_token;
+    /**
+     * @type {MediaItem[]}
+     */
     let list = [];
+    /**
+     *
+     * @param {number} pageSize
+     * @param {String} pageToken
+     * @returns {Promise<MediaItem[]>}
+     */
     const getImage = async (pageSize = 50, pageToken = "") => {
       this.log("Indexing photos now. total: ", list.length);
       try {
