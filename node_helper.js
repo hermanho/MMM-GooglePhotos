@@ -32,7 +32,6 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived: function (notification, payload) {
-    this.log("notification received", notification);
     switch (notification) {
       case "INIT":
         this.initializeAfterLoading(payload);
@@ -66,6 +65,8 @@ module.exports = NodeHelper.create({
       case "MODULE_SUSPENDED_SKIP_UPDATE":
         this.log("Module is suspended so skip the UI update");
         break;
+      default:
+        this.log("Unknown notification received", notification);
     }
   },
 
