@@ -15,6 +15,7 @@ const { finished } = require("stream/promises");
 let GPhotos = null;
 
 let NodeHelper = require("node_helper");
+const { shuffle } = require("./shuffle.js");
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -152,6 +153,9 @@ module.exports = NodeHelper.create({
     try {
       const data = await readFile(this.path + "/cache/photoListCache.json", "utf-8");
       this.localPhotoList = JSON.parse(data.toString());
+      if (this.config.sort === "random") {
+        shuffle(this.localPhotoList);
+      }
       this.log("successfully loaded cache of ", this.localPhotoList.length, " photos");
       await this.prepAndSendChunk(5); //only 5 for extra fast startup
     } catch (err) {
@@ -280,12 +284,7 @@ module.exports = NodeHelper.create({
             return -1;
           });
         } else {
-              for (let i = photos.length - 1; i > 0; i--) {
-                let j = Math.floor(Math.random() * (i + 1));
-                let t = photos[i];
-                photos[i] = photos[j];
-                photos[j] = t;
-              }
+          shuffle(photos);
         }
         this.log(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
