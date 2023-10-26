@@ -52,7 +52,10 @@ module.exports = NodeHelper.create({
         }
         break;
       case "IMAGE_LOADED":
-        this.log("Image loaded:", payload);
+        {
+          const { id, index } = payload;
+          this.log("Image loaded:", index, id);
+        }
         break;
       case "NEED_MORE_PICS":
         {
