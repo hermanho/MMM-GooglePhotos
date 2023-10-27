@@ -13,6 +13,8 @@ const { OAuth2Client } = require("google-auth-library");
  */
 const Axios = require("axios");
 const moment = require("moment");
+const { isAxiosError } = require("axios");
+const { error_to_string } = require("./error_to_string");
 
 /**
  *
@@ -141,7 +143,11 @@ class GPhotos {
   }
 
   logError(...args) {
-    if (this.debug) console.error("[GPHOTOS:CORE]", ...args);
+    console.error("[GPHOTOS:CORE]", ...args);
+  }
+
+  logTrace(...args) {
+    console.trace("[GPHOTOS:CORE]", ...args);
   }
 
   /**
@@ -179,8 +185,8 @@ class GPhotos {
       const ret = await Axios(config);
       return ret;
     } catch (error) {
-      this.logError("request fail with URL", url);
-      this.log(error.toString());
+      this.logTrace("request fail with URL", url);
+      this.logError(error_to_string(error));
       throw error;
     }
   }

@@ -8,14 +8,15 @@ const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
 const { Readable } = require("stream");
 const { finished } = require("stream/promises");
+const NodeHelper = require("node_helper");
+const { shuffle } = require("./shuffle.js");
+const { error_to_string } = require("./error_to_string");
 
 /**
  * @type {GP}
  */
 let GPhotos = null;
 
-let NodeHelper = require("node_helper");
-const { shuffle } = require("./shuffle.js");
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -206,7 +207,8 @@ module.exports = NodeHelper.create({
         this.log("couldn't send ", list.length, " pics");
       }
     } catch (err) {
-      this.log("failed to refresh and send chunk: ", err);
+      this.log("failed to refresh and send chunk: ");
+      this.log(error_to_string(err));
     }
   },
 
@@ -215,8 +217,7 @@ module.exports = NodeHelper.create({
       let r = await GPhotos.getAlbums();
       return r;
     } catch (err) {
-      this.log(err.toString());
-      console.log(err);
+      this.log(error_to_string(err));
     }
   },
 
@@ -242,8 +243,7 @@ module.exports = NodeHelper.create({
         return false;
       }
     } catch (err) {
-      this.log(err.toString());
-      console.log(err);
+      this.log(error_to_string(err));
     }
   },
 
@@ -302,14 +302,13 @@ module.exports = NodeHelper.create({
           await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
           this.log("Photo list cache saved");
         } catch (err) {
-          this.log(err);
+          this.log(error_to_string(err));
         }
       }
 
       return photos;
     } catch (err) {
-      this.log(err.toString());
-      console.log(err);
+      this.log(error_to_string(err));
     }
   },
 
