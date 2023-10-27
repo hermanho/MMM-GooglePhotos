@@ -26,6 +26,7 @@ module.exports = NodeHelper.create({
     this.photos = [];
     this.localPhotoList = [];
     this.localPhotoPntr = 0;
+    this.lastLocalPhotoPntr = 0;
     this.queue = null;
     this.uploadAlbumId;
     this.initializeTimer = null;
@@ -53,7 +54,7 @@ module.exports = NodeHelper.create({
       case "IMAGE_LOADED":
         {
           const { id, index } = payload;
-          this.log("Image loaded:", index, id);
+          this.log("Image loaded:", `${this.lastLocalPhotoPntr} + ${index}`, id);
         }
         break;
       case "NEED_MORE_PICS":
@@ -177,6 +178,7 @@ module.exports = NodeHelper.create({
       //find which ones to refresh
       if (this.localPhotoPntr < 0 || this.localPhotoPntr >= this.localPhotoList.length) {
         this.localPhotoPntr = 0;
+        this.lastLocalPhotoPntr = 0;
       }
       let numItemsToRefresh = Math.min(desiredChunk, this.localPhotoList.length - this.localPhotoPntr, 50); //50 is api limit
       this.log("num to ref: ", numItemsToRefresh, ", DesChunk: ", desiredChunk, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
@@ -195,6 +197,7 @@ module.exports = NodeHelper.create({
         this.sendSocketNotification("MORE_PICS", list);
 
         // update pointer
+        this.lastLocalPhotoPntr = this.localPhotoPntr;
         this.localPhotoPntr = this.localPhotoPntr + list.length;
         this.log("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
 
@@ -293,6 +296,7 @@ module.exports = NodeHelper.create({
         this.log(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
         this.localPhotoPntr = 0;
+        this.lastLocalPhotoPntr = 0;
         this.prepAndSendChunk(50).then();
         try {
           await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
