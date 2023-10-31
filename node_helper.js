@@ -17,7 +17,6 @@ const { error_to_string } = require("./error_to_string");
  */
 let GPhotos = null;
 
-
 module.exports = NodeHelper.create({
   start: function () {
     this.scanInterval = 1000 * 60 * 55; // fixed. no longer needs to be fixed
