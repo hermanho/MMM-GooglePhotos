@@ -186,6 +186,8 @@ class GPhotos {
       return ret;
     } catch (error) {
       this.logTrace("request fail with URL", url);
+      this.logTrace("params", JSON.stringify(params));
+      this.logTrace("data", JSON.stringify(data));
       this.logError(error_to_string(error));
       throw error;
     }
@@ -301,9 +303,9 @@ class GPhotos {
     let token = client.credentials.access_token;
     this.log("received: ", items.length, " to refresh"); //
     let params = new URLSearchParams();
-    let ii;
-    for (ii in items) {
-      params.append("mediaItemIds", items[ii].id);
+    const uniqueIds = new Set(items.map((i) => i.id));
+    for (let id of uniqueIds) {
+      params.append("mediaItemIds", id);
     }
 
     let response = await this.request(token, "mediaItems:batchGet", "get", params, null);
