@@ -92,9 +92,9 @@ Module.register("MMM-GooglePhotos", {
       return;
     }
     this.index = this.index + dir; //only used for reversing
-    if (this.index < 0) this.index = 0;
+    if (this.index < 0) this.index = this.scanned.length + this.index;
     if (this.index >= this.scanned.length) {
-      this.index = 0;
+      this.index -= this.scanned.length;
     }
     let target = this.scanned[this.index];
     let url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
