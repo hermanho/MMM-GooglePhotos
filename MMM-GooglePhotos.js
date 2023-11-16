@@ -92,9 +92,9 @@ Module.register("MMM-GooglePhotos", {
       return;
     }
     this.index = this.index + dir; //only used for reversing
-    if (this.index < 0) this.index = 0;
+    if (this.index < 0) this.index = this.scanned.length + this.index;
     if (this.index >= this.scanned.length) {
-      this.index = 0;
+      this.index -= this.scanned.length;
     }
     let target = this.scanned[this.index];
     let url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
@@ -111,9 +111,9 @@ Module.register("MMM-GooglePhotos", {
 
   ready: function (url, target) {
     let hidden = document.createElement("img");
-    hidden.onerror = () => {
-      console.log("[GPHOTO] Image load fails.");
-      this.sendSocketNotification("IMAGE_LOAD_FAIL", url);
+    hidden.onerror = (event, source, lineno, colno, error) => {
+      const errObj = { url, event, source, lineno, colno, error };
+      this.sendSocketNotification("IMAGE_LOAD_FAIL", errObj);
     };
     hidden.onload = () => {
       let back = document.getElementById("GPHOTO_BACK");
@@ -166,8 +166,7 @@ Module.register("MMM-GooglePhotos", {
       infoText.appendChild(albumTitle);
       infoText.appendChild(photoTime);
       info.appendChild(infoText);
-      console.log("[GPHOTO] Image loaded:", url);
-      this.sendSocketNotification("IMAGE_LOADED", url);
+      this.sendSocketNotification("IMAGE_LOADED", { id: target.id, index: this.index });
     };
     hidden.src = url;
   },

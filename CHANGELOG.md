@@ -1,5 +1,14 @@
 # MMM-GooglePhotos Change Log
 
+**`[2.1.2] - 2023/07/17`**
+- Changed: Update dependency packages to fix vulnerability [SNYK-JS-AXIOS-6032459](https://snyk.io/vuln/SNYK-JS-AXIOS-6032459)
+- Changed: Move installation guideline to [INSTALL.md](INSTALL.md)
+- Changed: Use shuffle algorithm to do random sorting.
+- Changed: Use native async await instead of promise syntax.
+- Changed: Photo index will be included in logging and fine tune the logging data and messages.
+- Removed: remove generate_token.js (v1)
+- Fixed: #170 fix photo showing when GPHOTO_PREVIOUS is triggered
+
 **`[2.1.1] - 2023/07/17`**
 - Changed: Update dependency packages to fix vulnerability.
 

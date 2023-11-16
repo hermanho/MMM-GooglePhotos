@@ -1,19 +1,24 @@
 "use strict";
 
 const EventEmitter = require("events");
-const util = require("util");
 const opn = require("open");
 const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
 const { mkdirp } = require("mkdirp");
 const { OAuth2Client } = require("google-auth-library");
+
+/**
+ * @type {import("axios").AxiosStatic}
+ */
 const Axios = require("axios");
 const moment = require("moment");
+const { isAxiosError } = require("axios");
+const { error_to_string } = require("./error_to_string");
 
 /**
  *
- * @param ms
+ * @param {number} ms ms
  */
 function sleep(ms = 1000) {
   return new Promise((resolve) => {
@@ -55,7 +60,6 @@ class Auth extends EventEmitter {
     const saveTokens = async (first = false) => {
       oauthClient.setCredentials(tokensCred);
       let expired = false;
-      let now = Date.now();
       if (tokensCred.expiry_date < Date.now()) {
         expired = true;
         log("Token is expired.");
@@ -139,10 +143,18 @@ class GPhotos {
   }
 
   logError(...args) {
-    if (this.debug) console.error("[GPHOTOS:CORE]", ...args);
+    console.error("[GPHOTOS:CORE]", ...args);
   }
 
-  onAuthReady(job = () => {}) {
+  logTrace(...args) {
+    console.trace("[GPHOTOS:CORE]", ...args);
+  }
+
+  /**
+   *
+   * @returns {Promise<OAuth2Client>} OAuth2Client
+   */
+  async onAuthReady() {
     let auth = null;
     try {
       auth = new Auth(this.options.authOption, this.debug);
@@ -150,316 +162,255 @@ class GPhotos {
       this.log(e.toString());
       throw e;
     }
-    auth.on("ready", (client) => {
-      job(client);
+    return new Promise((resolve) => {
+      auth.on("ready", (client) => {
+        resolve(client);
+      });
     });
   }
 
-  generateToken(success = () => {}, fail = () => {}) {
-    this.onAuthReady((client) => {
-      const isTokenFileExist = () => {
-        let fp = path.resolve(__dirname, this.options.authOption.savedTokensPath);
-        if (fs.existsSync(fp)) return true;
+  async request(token, endPoint = "", method = "get", params = null, data = null) {
+    let url = endPoint;
+    try {
+      let config = {
+        method: method,
+        url: url,
+        baseURL: "https://photoslibrary.googleapis.com/v1/",
+        headers: {
+          Authorization: "Bearer " + token,
+        },
+      };
+      if (params) config.params = params;
+      if (data) config.data = data;
+      const ret = await Axios(config);
+      return ret;
+    } catch (error) {
+      this.logTrace("request fail with URL", url);
+      this.logTrace("params", JSON.stringify(params));
+      this.logTrace("data", JSON.stringify(data));
+      this.logError(error_to_string(error));
+      throw error;
+    }
+  }
+
+  async getAlbums() {
+    let albums = await this.getAlbumType("albums");
+    let shared = await this.getAlbumType("sharedAlbums");
+    for (let s of shared) {
+      let isExist = albums.find((a) => {
+        if (a.id === s.id) return true;
         return false;
-      };
-      if (isTokenFileExist()) success();
-      fail();
-    });
+      });
+      if (!isExist) albums.push(s);
+    }
+    return albums;
   }
 
-  request(token, endPoint = "", method = "get", params = null, data = null) {
-    return new Promise((resolve) => {
-      try {
-        let url = endPoint;
-        let config = {
-          method: method,
-          url: url,
-          baseURL: "https://photoslibrary.googleapis.com/v1/",
-          headers: {
-            Authorization: "Bearer " + token,
-          },
-        };
-        if (params) config.params = params;
-        if (data) config.data = data;
-        Axios(config)
-          .then((ret) => {
-            resolve(ret);
-          })
-          .catch((e) => {
-            this.logError("request fail with URL", url);
-            this.logError(e.toString());
-            throw e;
-          });
-      } catch (error) {
-        this.log(error.toString());
-        throw error;
-      }
-    });
-  }
-
-  getAlbums() {
-    return new Promise((resolve) => {
-      const step = async () => {
-        let albums = await this.getAlbumType("albums");
-        let shared = await this.getAlbumType("sharedAlbums");
-        for (let s of shared) {
-          let isExist = albums.find((a) => {
-            if (a.id === s.id) return true;
-            return false;
-          });
-          if (!isExist) albums.push(s);
-        }
-        resolve(albums);
-      };
-      step();
-    });
-  }
-
-  getAlbumType(type = "albums") {
+  async getAlbumType(type = "albums") {
     if (type !== "albums" && type !== "sharedAlbums") throw new Error("Invalid parameter for .getAlbumType()", type);
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        let list = [];
-        let found = 0;
-        const getAlbum = async (pageSize = 50, pageToken = "") => {
-          this.log("Getting Album info chunks.");
-          let params = {
-            pageSize: pageSize,
-            pageToken: pageToken,
-          };
-          try {
-            let response = await this.request(token, type, "get", params, null);
-            let body = response.data;
-            if (body[type] && Array.isArray(body[type])) {
-              found += body[type].length;
-              list = list.concat(body[type]);
-            }
-            if (body.nextPageToken) {
-              const generous = async () => {
-                await sleep(500);
-                getAlbum(pageSize, body.nextPageToken);
-              };
-              generous();
-            } else {
-              this.albums[type] = list;
-              resolve(list);
-            }
-          } catch (err) {
-            this.log(err.toString());
-            throw err;
-          }
-        };
-        getAlbum();
-      });
-    });
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    let list = [];
+    let found = 0;
+    const getAlbum = async (pageSize = 50, pageToken = "") => {
+      this.log("Getting Album info chunks.");
+      let params = {
+        pageSize: pageSize,
+        pageToken: pageToken,
+      };
+      try {
+        let response = await this.request(token, type, "get", params, null);
+        let body = response.data;
+        if (body[type] && Array.isArray(body[type])) {
+          found += body[type].length;
+          list = list.concat(body[type]);
+        }
+        if (body.nextPageToken) {
+          await sleep(500);
+          return getAlbum(pageSize, body.nextPageToken);
+        } else {
+          this.albums[type] = list;
+          return list;
+        }
+      } catch (err) {
+        this.log(err.toString());
+        throw err;
+      }
+    };
+    return getAlbum();
   }
 
-  getImageFromAlbum(albumId, isValid = null, maxNum = 99999) {
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        let list = [];
-        const getImage = async (pageSize = 50, pageToken = "") => {
-          this.log("Indexing photos now. total: ", list.length);
-          try {
-            let data = {
-              albumId: albumId,
-              pageSize: pageSize,
-              pageToken: pageToken,
-            };
-            let response = await this.request(token, "mediaItems:search", "post", null, data);
-            if (response.data.hasOwnProperty("mediaItems") && Array.isArray(response.data.mediaItems)) {
-              for (let item of response.data.mediaItems) {
-                if (list.length < maxNum) {
-                  item._albumId = albumId;
-                  if (typeof isValid === "function") {
-                    if (isValid(item)) list.push(item);
-                  } else {
-                    list.push(item);
-                  }
-                }
-              }
-              if (list.length >= maxNum) {
-                resolve(list); // full with maxNum
-              } else {
-                if (response.data.nextPageToken) {
-                  const generous = async () => {
-                    await sleep(500);
-                    getImage(50, response.data.nextPageToken);
-                  };
-                  generous();
-                } else {
-                  resolve(list); // all found but lesser than maxNum
-                }
-              }
-            } else {
-              resolve(list); // empty
-            }
-          } catch (err) {
-            this.log(".getImageFromAlbum()", err.toString());
-            this.log(err);
-            throw err;
-          }
+  async getImageFromAlbum(albumId, isValid = null, maxNum = 99999) {
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    /**
+     * @type {MediaItem[]}
+     */
+    let list = [];
+    /**
+     *
+     * @param {number} pageSize
+     * @param {String} pageToken
+     * @returns {Promise<MediaItem[]>}
+     */
+    const getImage = async (pageSize = 50, pageToken = "") => {
+      this.log("Indexing photos now. total: ", list.length);
+      try {
+        let data = {
+          albumId: albumId,
+          pageSize: pageSize,
+          pageToken: pageToken,
         };
-        getImage();
-      });
-    });
+        let response = await this.request(token, "mediaItems:search", "post", null, data);
+        if (response.data.hasOwnProperty("mediaItems") && Array.isArray(response.data.mediaItems)) {
+          for (let item of response.data.mediaItems) {
+            if (list.length < maxNum) {
+              item._albumId = albumId;
+              if (typeof isValid === "function") {
+                if (isValid(item)) list.push(item);
+              } else {
+                list.push(item);
+              }
+            }
+          }
+          if (list.length >= maxNum) {
+            return list; // full with maxNum
+          } else {
+            if (response.data.nextPageToken) {
+              await sleep(500);
+              return getImage(50, response.data.nextPageToken);
+            } else {
+              return list; // all found but lesser than maxNum
+            }
+          }
+        } else {
+          return list; // empty
+        }
+      } catch (err) {
+        this.log(".getImageFromAlbum()", err.toString());
+        this.log(err);
+        throw err;
+      }
+    };
+    return getImage();
   }
 
   async updateTheseMediaItems(items) {
-    return new Promise((resolve) => {
-      if (items.length <= 0) {
-        resolve(items);
+    if (items.length <= 0) {
+      return [];
+    }
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    this.log("received: ", items.length, " to refresh"); //
+    let params = new URLSearchParams();
+    const uniqueIds = new Set(items.map((i) => i.id));
+    for (let id of uniqueIds) {
+      params.append("mediaItemIds", id);
+    }
+
+    let response = await this.request(token, "mediaItems:batchGet", "get", params, null);
+
+    if (response.data.hasOwnProperty("mediaItemResults") && Array.isArray(response.data.mediaItemResults)) {
+      for (let i = 0; i < response.data.mediaItemResults.length; i++) {
+        if (response.data.mediaItemResults[i].hasOwnProperty("mediaItem")) {
+          items[i].baseUrl = response.data.mediaItemResults[i].mediaItem.baseUrl;
+        }
       }
 
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        this.log("received: ", items.length, " to refresh"); //
-        let list = [];
-        let params = new URLSearchParams();
-        let ii;
-        for (ii in items) {
-          params.append("mediaItemIds", items[ii].id);
-        }
+      return items;
+    }
 
-        const refr = async () => {
-          let response = await this.request(token, "mediaItems:batchGet", "get", params, null);
-
-          if (response.data.hasOwnProperty("mediaItemResults") && Array.isArray(response.data.mediaItemResults)) {
-            for (let i = 0; i < response.data.mediaItemResults.length; i++) {
-              if (response.data.mediaItemResults[i].hasOwnProperty("mediaItem")) {
-                items[i].baseUrl = response.data.mediaItemResults[i].mediaItem.baseUrl;
-              }
-            }
-
-            resolve(items);
-          }
-        };
-        refr();
-      });
-    });
+    return [];
   }
 
-  createAlbum(albumName) {
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        const create = async () => {
-          try {
-            let created = await this.request(token, "albums", "post", null, {
-              album: {
-                title: albumName,
-              },
-            });
-            resolve(created.data);
-          } catch (err) {
-            this.log(".createAlbum() ", err.toString());
-            this.log(err);
-            throw err;
-          }
-        };
-        create();
+  async createAlbum(albumName) {
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    try {
+      let created = await this.request(token, "albums", "post", null, {
+        album: {
+          title: albumName,
+        },
       });
-    });
+      return created.data;
+    } catch (err) {
+      this.log(".createAlbum() ", err.toString());
+      this.log(err);
+      throw err;
+    }
   }
 
-  shareAlbum(albumId) {
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        const create = async () => {
-          try {
-            let shareInfo = await this.request(token, "albums/" + albumId + ":share", "post", null, {
-              sharedAlbumOptions: {
-                isCollaborative: true,
-                isCommentable: true,
-              },
-            });
-            resolve(shareInfo.data);
-          } catch (err) {
-            this.log(".shareAlbum()", err.toString());
-            this.log(err);
-            throw err;
-          }
-        };
-        create();
+  async shareAlbum(albumId) {
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    try {
+      let shareInfo = await this.request(token, "albums/" + albumId + ":share", "post", null, {
+        sharedAlbumOptions: {
+          isCollaborative: true,
+          isCommentable: true,
+        },
       });
-    });
+      return shareInfo.data;
+    } catch (err) {
+      this.log(".shareAlbum()", err.toString());
+      this.log(err);
+      throw err;
+    }
   }
 
-  upload(path) {
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        const upload = async () => {
-          try {
-            let newFile = fs.createReadStream(path);
-            let url = "uploads";
-            let option = {
-              method: "post",
-              url: url,
-              baseURL: "https://photoslibrary.googleapis.com/v1/",
-              headers: {
-                Authorization: "Bearer " + token,
-                "Content-type": "application/octet-stream",
-                //X-Goog-Upload-Content-Type: mime-type
-                "X-Goog-Upload-Protocol": "raw",
-              },
-            };
-            option.data = newFile;
-            Axios(option)
-              .then((ret) => {
-                resolve(ret.data);
-              })
-              .catch((e) => {
-                this.log(".upload:resultResolving ", e.toString());
-                this.log(e);
-                throw e;
-              });
-          } catch (err) {
-            this.log(".upload()", err.toString());
-            this.log(err);
-            throw err;
-          }
-        };
-        upload();
-      });
-    });
+  async upload(path) {
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    try {
+      let newFile = fs.createReadStream(path);
+      let url = "uploads";
+      let option = {
+        method: "post",
+        url: url,
+        baseURL: "https://photoslibrary.googleapis.com/v1/",
+        headers: {
+          Authorization: "Bearer " + token,
+          "Content-type": "application/octet-stream",
+          //X-Goog-Upload-Content-Type: mime-type
+          "X-Goog-Upload-Protocol": "raw",
+        },
+      };
+      option.data = newFile;
+      const ret = await Axios(option);
+      return ret.data;
+    } catch (err) {
+      this.log(".upload()", err.toString());
+      this.log(err);
+      throw err;
+    }
   }
 
-  create(uploadToken, albumId) {
-    return new Promise((resolve) => {
-      this.onAuthReady((client) => {
-        let token = client.credentials.access_token;
-        const create = async () => {
-          try {
-            let fileName = moment().format("[MM_]YYYYMMDD_HHmm");
-            let result = await this.request(token, "mediaItems:batchCreate", "post", null, {
-              albumId: albumId,
-              newMediaItems: [
-                {
-                  description: "Uploaded by MMM-GooglePhotos",
-                  simpleMediaItem: {
-                    uploadToken: uploadToken,
-                    fileName: fileName,
-                  },
-                },
-              ],
-              albumPosition: {
-                position: "LAST_IN_ALBUM",
-              },
-            });
-            resolve(result.data);
-          } catch (err) {
-            this.log(".create() ", err.toString());
-            this.log(err);
-            throw err;
-          }
-        };
-        create();
+  async create(uploadToken, albumId) {
+    const client = await this.onAuthReady();
+    let token = client.credentials.access_token;
+    try {
+      let fileName = moment().format("[MM_]YYYYMMDD_HHmm");
+      let result = await this.request(token, "mediaItems:batchCreate", "post", null, {
+        albumId: albumId,
+        newMediaItems: [
+          {
+            description: "Uploaded by MMM-GooglePhotos",
+            simpleMediaItem: {
+              uploadToken: uploadToken,
+              fileName: fileName,
+            },
+          },
+        ],
+        albumPosition: {
+          position: "LAST_IN_ALBUM",
+        },
       });
-    });
+      return result.data;
+    } catch (err) {
+      this.log(".create() ", err.toString());
+      this.log(err);
+      throw err;
+    }
   }
 }
 

@@ -30,12 +30,19 @@
     }
   },
   "rules": {
-    "prettier/prettier": "error",
+    "prettier/prettier": [
+      "error",
+      {
+        "endOfLine": "auto"
+      }
+    ],
     "eqeqeq": "error",
     "no-prototype-builtins": "off",
     "no-unused-vars": "off",
     "no-useless-return": "error",
     "no-var": "error",
-    "jsdoc/require-returns": "off"
+    "jsdoc/require-returns": "off",
+    "jsdoc/require-param-description": "off",
+    "semi": "error"
   }
 }
