@@ -11,6 +11,7 @@ const { finished } = require("stream/promises");
 const NodeHelper = require("node_helper");
 const { shuffle } = require("./shuffle.js");
 const { error_to_string } = require("./error_to_string");
+const { ConfigFileError, AuthError } = require("./Errors.js");
 
 /**
  * @type {GP}
@@ -216,6 +217,9 @@ module.exports = NodeHelper.create({
       let r = await GPhotos.getAlbums();
       return r;
     } catch (err) {
+      if (err instanceof ConfigFileError || err instanceof AuthError) {
+        this.sendSocketNotification("ERROR", err.message);
+      }
       this.log(error_to_string(err));
     }
   },
@@ -277,6 +281,9 @@ module.exports = NodeHelper.create({
       for (let album of this.albums) {
         this.log(`Prepare to get photo list from '${album.title}'`);
         let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
+        list.forEach(i => {
+          i._albumTitle = album.title;
+        });
         this.log(`Got ${list.length} photo(s) from '${album.title}'`);
         photos = photos.concat(list);
       }

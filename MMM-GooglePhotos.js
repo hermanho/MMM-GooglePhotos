@@ -64,6 +64,16 @@ Module.register("MMM-GooglePhotos", {
         this.updatePhotos(); //little faster starting
       }
     }
+    if (noti === "ERROR") {
+      const current = document.getElementById("GPHOTO_CURRENT");
+      const errMsgDiv = document.createElement("div");
+      errMsgDiv.style.textAlign = "center";
+      errMsgDiv.style.lineHeight = "80vh";
+      errMsgDiv.style.fontSize = "1.5em";
+      errMsgDiv.style.verticalAlign = "middle";
+      errMsgDiv.textContent = payload;
+      current.appendChild(errMsgDiv);
+    }
   },
 
   notificationReceived: function (noti, payload, sender) {
@@ -118,6 +128,7 @@ Module.register("MMM-GooglePhotos", {
     hidden.onload = () => {
       let back = document.getElementById("GPHOTO_BACK");
       let current = document.getElementById("GPHOTO_CURRENT");
+      current.textContent = "";
       //current.classList.remove("animated")
       let dom = document.getElementById("GPHOTO");
       back.style.backgroundImage = `url(${url})`;
