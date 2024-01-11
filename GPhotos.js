@@ -1,8 +1,6 @@
 "use strict";
 
 const EventEmitter = require("events");
-const opn = require("open");
-const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
 const { mkdirp } = require("mkdirp");
