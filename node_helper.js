@@ -108,7 +108,7 @@ module.exports = NodeHelper.create({
       () => {
         this.tryToIntitialize();
       },
-      1 * 60 * 1000,
+      1 * 60 * 1000
     );
 
     this.log("Starting Initialization");
@@ -281,7 +281,7 @@ module.exports = NodeHelper.create({
       for (let album of this.albums) {
         this.log(`Prepare to get photo list from '${album.title}'`);
         let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
-        list.forEach(i => {
+        list.forEach((i) => {
           i._albumTitle = album.title;
         });
         this.log(`Got ${list.length} photo(s) from '${album.title}'`);

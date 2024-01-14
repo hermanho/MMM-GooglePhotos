@@ -33,14 +33,17 @@ class Auth extends EventEmitter {
     super();
     this.#config = config;
     this.#debug = debug;
-    this.init().then(() => { }, (err) => this.emit("error", err));
+    this.init().then(
+      () => {},
+      (err) => this.emit("error", err),
+    );
   }
 
   async init() {
     const log = this.#debug
       ? (...args) => {
-        console.log("[GPHOTOS:AUTH]", ...args);
-      }
+          console.log("[GPHOTOS:AUTH]", ...args);
+        }
       : () => {};
     if (this.#config === undefined) config = {};
     if (this.#config.keyFilePath === undefined) {
@@ -88,9 +91,6 @@ class Auth extends EventEmitter {
           if (fs.existsSync(file)) {
             const tokensFile = fs.readFileSync(file);
             tokensCred = JSON.parse(tokensFile);
-          }
-          else {
-
           }
         } catch (error) {
           console.error("[GPHOTOS:AUTH]", error);
@@ -231,8 +231,8 @@ class GPhotos {
     /**
      *
      * @param {number} pageSize
-     * @param {String} pageToken
-     * @returns {Promise<MediaItem[]>}
+     * @param {string} pageToken
+     * @returns {Promise<MediaItem[]>} MediaItem
      */
     const getImage = async (pageSize = 50, pageToken = "") => {
       this.log("Indexing photos now. total: ", list.length);

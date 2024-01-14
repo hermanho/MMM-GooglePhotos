@@ -24,6 +24,7 @@ Module.register("MMM-GooglePhotos", {
     timeFormat: "YYYY/MM/DD HH:mm",
     autoInfoPosition: false,
   },
+  requiresVersion: "2.24.0",
 
   suspended: false,
 
