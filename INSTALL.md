@@ -1,17 +1,20 @@
 ## Installation
+
 1. Install Module
+
     ```sh
     cd ~/MagicMirror/modules
-    git clone https://github.com/eouia/MMM-GooglePhotos.git
+    git clone https://github.com/hermanho/MMM-GooglePhotos.git
     cd MMM-GooglePhotos
     npm run install-prod
     ```
 
     If you are using Docker
+
     ```sh
-    cd ~/magic_mirror/modules
-    git clone https://github.com/eouia/MMM-GooglePhotos.git
-    docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror npm install
+    cd ~/MagicMirror/modules
+    git clone https://github.com/hermanho/MMM-GooglePhotos.git
+    docker exec -it -w /opt/magic_mirror/modules/MMM-GooglePhotos magic_mirror npm run install-prod
     ```
 
 1. Add MMM-GooglePhotos module config in ~/MagicMirror/config/config.js
