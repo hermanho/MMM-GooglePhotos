@@ -1,11 +1,11 @@
 {
+  "root": true,
   "extends": [
     "eslint:recommended",
-    "plugin:prettier/recommended",
-    "plugin:jsdoc/recommended"
+    "plugin:jsdoc/recommended",
+    "plugin:jsdoc/recommended-typescript-flavor"
   ],
   "plugins": [
-    "prettier",
     "jsdoc",
     "jest"
   ],
@@ -30,10 +30,14 @@
     }
   },
   "rules": {
-    "prettier/prettier": [
+    "comma-dangle": [
       "error",
       {
-        "endOfLine": "auto"
+        "arrays": "always-multiline",
+        "objects": "always-multiline",
+        "imports": "always-multiline",
+        "exports": "always-multiline",
+        "functions": "only-multiline"
       }
     ],
     "eqeqeq": "error",

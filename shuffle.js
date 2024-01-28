@@ -1,4 +1,8 @@
 // https://stackoverflow.com/a/2450976/2352341
+/**
+ *
+ * @param {[]} array
+ */
 function shuffle(array) {
   let currentIndex = array.length,
     randomIndex;

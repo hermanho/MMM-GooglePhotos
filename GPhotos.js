@@ -1,8 +1,6 @@
 "use strict";
 
 const EventEmitter = require("events");
-const opn = require("open");
-const readline = require("readline");
 const fs = require("fs");
 const path = require("path");
 const { mkdirp } = require("mkdirp");
@@ -15,6 +13,7 @@ const Axios = require("axios");
 const moment = require("moment");
 const { isAxiosError } = require("axios");
 const { error_to_string } = require("./error_to_string");
+const { ConfigFileError, AuthError } = require("./Errors");
 
 /**
  *
@@ -34,7 +33,10 @@ class Auth extends EventEmitter {
     super();
     this.#config = config;
     this.#debug = debug;
-    this.init();
+    this.init().then(
+      () => {},
+      (err) => this.emit("error", err),
+    );
   }
 
   async init() {
@@ -45,14 +47,18 @@ class Auth extends EventEmitter {
       : () => {};
     if (this.#config === undefined) config = {};
     if (this.#config.keyFilePath === undefined) {
-      throw new Error('Missing "keyFilePath" from config (This should be where your Credential file is)');
+      throw new ConfigFileError('Missing "keyFilePath" from config (This should be where your Credential file is)');
     }
     if (this.#config.savedTokensPath === undefined) {
-      throw new Error('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)');
+      throw new ConfigFileError('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)');
+    }
+    let file = path.resolve(__dirname, this.#config.savedTokensPath);
+    if (!fs.existsSync(file)) {
+      throw new AuthError("No OAuth token genreated. Please execute generate_token_v2.js before start.");
     }
     let creds = path.resolve(__dirname, this.#config.keyFilePath);
     if (!fs.existsSync(creds)) {
-      throw new Error("Missing Credentials.");
+      throw new AuthError("Missing Credentials.");
     }
     const key = require(this.#config.keyFilePath).installed;
     const oauthClient = new OAuth2Client(key.client_id, key.client_secret, key.redirect_uris[0]);
@@ -78,44 +84,16 @@ class Auth extends EventEmitter {
       }
     };
 
-    const getTokens = () => {
-      const url = oauthClient.generateAuthUrl({
-        access_type: "offline",
-        scope: [this.#config.scope],
-      });
-      log("Opening OAuth URL.\n\n" + url + "\n\nReturn here with your code.");
-      opn(url).catch(() => {
-        log("Failed to automatically open the URL. Copy/paste this in your browser:\n", url);
-      });
-      if (typeof this.#config.tokenInput === "function") {
-        this.#config.tokenInput(processTokens);
-        return;
-      }
-      const reader = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        terminal: false,
-      });
-      reader.question("> Paste your code: ", processTokens);
-    };
-    const processTokens = async (oauthCode) => {
-      if (!oauthCode) process.exit(-1);
-      try {
-        const tkns = await oauthClient.getToken(oauthCode);
-        tokensCred = tkns;
-        await saveTokens(true);
-      } catch (error) {
-        throw new Error("Error getting tokens:", error);
-      }
-    };
     process.nextTick(() => {
       if (this.#config.savedTokensPath) {
         try {
           let file = path.resolve(__dirname, this.#config.savedTokensPath);
-          const tokensFile = fs.readFileSync(file);
-          tokensCred = JSON.parse(tokensFile);
+          if (fs.existsSync(file)) {
+            const tokensFile = fs.readFileSync(file);
+            tokensCred = JSON.parse(tokensFile);
+          }
         } catch (error) {
-          getTokens();
+          console.error("[GPHOTOS:AUTH]", error);
         } finally {
           if (tokensCred !== undefined) saveTokens();
         }
@@ -162,9 +140,12 @@ class GPhotos {
       this.log(e.toString());
       throw e;
     }
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       auth.on("ready", (client) => {
         resolve(client);
+      });
+      auth.on("error", (error) => {
+        reject(error);
       });
     });
   }
@@ -250,8 +231,8 @@ class GPhotos {
     /**
      *
      * @param {number} pageSize
-     * @param {String} pageToken
-     * @returns {Promise<MediaItem[]>}
+     * @param {string} pageToken
+     * @returns {Promise<MediaItem[]>} MediaItem
      */
     const getImage = async (pageSize = 50, pageToken = "") => {
       this.log("Indexing photos now. total: ", list.length);
