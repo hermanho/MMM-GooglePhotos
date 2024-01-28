@@ -4,6 +4,9 @@
   "description": "MagicMirror² module to display your photos from Google Photos",
   "license": "MIT",
   "author": "eouia0819@gmail.com",
+	"contributors": [
+		"https://github.com/hermanho/MMM-GooglePhotos/graphs/contributors"
+	],
   "scripts": {
     "install-prod": "npm install --no-audit --no-fund --no-update-notifier --only=prod --omit=dev",
     "lint:js": "eslint . --fix"
