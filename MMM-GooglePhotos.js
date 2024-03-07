@@ -43,8 +43,6 @@ Module.register("MMM-GooglePhotos", {
     if (this.config.updateInterval < 1000 * 10) this.config.updateInterval = 1000 * 10;
     this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition);
 
-    Log.info("config.albums", this.config.albums, this.config.albums[0] instanceof RegExp);
-
     const config = { ...this.config };
     for (let i = 0; i < config.albums.length; i++) {
       const album = config.albums[i];
