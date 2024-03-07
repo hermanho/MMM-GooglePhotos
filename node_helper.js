@@ -113,7 +113,6 @@ module.exports = NodeHelper.create({
     });
 
     this.albumsFilters = [];
-    Log.info("config.albums", config.albums);
     for (let album of config.albums) {
       if (album.hasOwnProperty("source") && album.hasOwnProperty("flags")) {
         this.albumsFilters.push(new RE2(album.source, album.flags + 'u'));
