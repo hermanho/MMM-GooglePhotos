@@ -65,12 +65,12 @@ Module.register("MMM-GooglePhotos", {
     if (noti === "INITIALIZED") {
       this.albums = payload;
       //set up timer once initialized, more robust against faults
-      this.updateTimer = setInterval(() => {
-        this.updatePhotos();
-      }, this.config.updateInterval);
-    }
-    if (noti === "UPDATE_ALBUMS") {
-      this.albums = payload;
+      if (!this.updateTimer || this.updateTimer === null) {
+        Log.info("Start timer for updating photos.");
+        this.updateTimer = setInterval(() => {
+          this.updatePhotos();
+        }, this.config.updateInterval);
+      }
     }
     if (noti === "MORE_PICS") {
       if (payload && Array.isArray(payload) && payload.length > 0) this.needMorePicsFlag = false;
@@ -105,6 +105,7 @@ Module.register("MMM-GooglePhotos", {
   },
 
   updatePhotos: function (dir = 0) {
+    Log.debug("Updating photos..");
     this.firstScan = false;
 
     if (this.scanned.length === 0) {
@@ -146,15 +147,12 @@ Module.register("MMM-GooglePhotos", {
       let current = document.getElementById("GPHOTO_CURRENT");
       current.textContent = "";
       //current.classList.remove("animated")
-      let dom = document.getElementById("GPHOTO");
+      // let dom = document.getElementById("GPHOTO");
       back.style.backgroundImage = `url(${url})`;
       current.style.backgroundImage = `url(${url})`;
       current.classList.add("animated");
-      let info = document.getElementById("GPHOTO_INFO");
-      let album = this.albums.find((a) => {
-        if (a.id === target._albumId) return true;
-        return false;
-      });
+      const info = document.getElementById("GPHOTO_INFO");
+      const album = Array.isArray(this.albums) ? this.albums.find((a) => a.id === target._albumId) : { id: -1, title: '' };
       if (this.config.autoInfoPosition) {
         let op = (album, target) => {
           let now = new Date();
@@ -170,7 +168,7 @@ Module.register("MMM-GooglePhotos", {
         if (typeof this.config.autoInfoPosition === "function") {
           op = this.config.autoInfoPosition;
         }
-        let [top, left, bottom, right] = op(album, target);
+        const [top, left, bottom, right] = op(album, target);
         info.style.setProperty("--top", top);
         info.style.setProperty("--left", left);
         info.style.setProperty("--bottom", bottom);

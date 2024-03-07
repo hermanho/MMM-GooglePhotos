@@ -127,40 +127,16 @@ module.exports = NodeHelper.create({
   },
 
   tryToIntitialize: async function () {
-    //set timer, in case if fails to retry in 1 min
+    //set timer, in case if fails to retry in 3 min
     clearTimeout(this.initializeTimer);
     this.initializeTimer = setTimeout(
       () => {
         this.tryToIntitialize();
       },
-      1 * 60 * 1000
+      3 * 60 * 1000
     );
 
     Log.info("Starting Initialization");
-    Log.info("Getting album list");
-    /**
-     * @type {GooglePhotos.Album[]}
-     */
-    let albums = await this.getAlbums();
-    if (config.uploadAlbum) {
-      let uploadAlbum = albums.find((a) => {
-        return a.title === config.uploadAlbum ? true : false;
-      });
-      if (uploadAlbum) {
-        if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
-          Log.info("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id);
-          this.uploadAlbumId = uploadAlbum.id;
-          this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum);
-        } else {
-          Log.error("This album is not uploadable:", config.uploadAlbum);
-        }
-      } else {
-        Log.error("Can't find uploadable album :", config.uploadAlbum);
-      }
-    }
-    await this.getAlbumList();
-    this.log_debug("Initialized");
-    this.sendSocketNotification("INITIALIZED", this.selecetedAlbums);
 
     //load cached list - if available
     try {
@@ -233,13 +209,16 @@ module.exports = NodeHelper.create({
   },
 
   startScanning: function () {
+    const fn = () => {
+      const nextScanDt = new Date(Date.now() + this.scanInterval);
+      this.scanJob().then(() => {
+        Log.info("Next scan will be at", nextScanDt);
+      });
+    };
     // set up interval, then 1 fail won't stop future scans
-    this.scanTimer = setInterval(() => {
-      this.scanJob();
-    }, this.scanInterval);
-
+    this.scanTimer = setInterval(fn, this.scanInterval);
     // call for first time
-    this.scanJob();
+    fn();
   },
 
   scanJob: async function () {
@@ -265,6 +244,20 @@ module.exports = NodeHelper.create({
      * @type {GooglePhotos.Album[]}
      */
     let albums = await this.getAlbums();
+    if (this.config.uploadAlbum) {
+      const uploadAlbum = albums.find((a) => a.title === config.uploadAlbum);
+      if (uploadAlbum) {
+        if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
+          Log.info("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id);
+          this.uploadAlbumId = uploadAlbum.id;
+          this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum);
+        } else {
+          Log.error("This album is not uploadable:", config.uploadAlbum);
+        }
+      } else {
+        Log.error("Can't find uploadable album :", config.uploadAlbum);
+      }
+    }
     /**
      * @type {GooglePhotos.Album[]}
      */
@@ -297,7 +290,7 @@ module.exports = NodeHelper.create({
       await finished(Readable.fromWeb(response.body).pipe(file));
     }
     this.selecetedAlbums = selecetedAlbums;
-    this.sendSocketNotification("UPDATE_ALBUMS", selecetedAlbums);
+    this.sendSocketNotification("INITIALIZED", selecetedAlbums);
   },
 
   getImageList: async function () {
