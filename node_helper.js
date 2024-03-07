@@ -4,14 +4,27 @@ const fs = require("fs");
 const { writeFile, readFile } = require("fs/promises");
 const path = require("path");
 const moment = require("moment");
-const GP = require("./GPhotos.js");
-const authOption = require("./google_auth.json");
 const { Readable } = require("stream");
 const { finished } = require("stream/promises");
+const { RE2 } = require("re2-wasm");
+const { Set } = require('immutable');
 const NodeHelper = require("node_helper");
+const Log = require("logger");
+const GP = require("./GPhotos.js");
+const authOption = require("./google_auth.json");
 const { shuffle } = require("./shuffle.js");
 const { error_to_string } = require("./error_to_string");
 const { ConfigFileError, AuthError } = require("./Errors.js");
+
+/**
+ * 
+ * @param {GooglePhotos.Album[]} albums 
+ * @param {Album} album 
+ * @returns boolean
+ */
+let albumExists = function (albums, album) {
+  return albums.some((expected) => album.id === expected.id);
+};
 
 /**
  * @type {GP}
@@ -19,11 +32,11 @@ const { ConfigFileError, AuthError } = require("./Errors.js");
 let GPhotos = null;
 
 module.exports = NodeHelper.create({
-  start: function () {
+  start() {
     this.scanInterval = 1000 * 60 * 55; // fixed. no longer needs to be fixed
     this.config = {};
     this.scanTimer = null;
-    this.albums = [];
+    this.selecetedAlbums = [];
     this.photos = [];
     this.localPhotoList = [];
     this.localPhotoPntr = 0;
@@ -44,60 +57,73 @@ module.exports = NodeHelper.create({
       case "IMAGE_LOAD_FAIL":
         {
           const { url, event, source, lineno, colno, error } = payload;
-          console.error("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
+          Log.error("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
           if (error) {
-            console.error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+            Log.error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
           }
-          console.error("Image loading fails. Check your network.:", url);
+          Log.error("Image loading fails. Check your network.:", url);
           this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
       case "IMAGE_LOADED":
         {
           const { id, index } = payload;
-          this.log("Image loaded:", `${this.lastLocalPhotoPntr} + ${index}`, id);
+          this.log_debug("Image loaded:", `${this.lastLocalPhotoPntr} + ${index}`, id);
         }
         break;
       case "NEED_MORE_PICS":
         {
-          this.log("Used last pic in list");
+          Log.info("Used last pic in list");
           this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
       case "MODULE_SUSPENDED_SKIP_UPDATE":
-        this.log("Module is suspended so skip the UI update");
+        this.log_debug("Module is suspended so skip the UI update");
         break;
       default:
-        this.log("Unknown notification received", notification);
+        Log.error("Unknown notification received", notification);
     }
   },
 
-  log: function (...args) {
-    if (this.debug) console.log("[GPHOTOS] [node_helper]", ...args);
+  log_debug: function (...args) {
+    if (this.debug) Log.info("[GPHOTOS] [node_helper]", ...args);
   },
 
   upload: async function (path) {
     if (!this.uploadAlbumId) {
-      this.log("No uploadable album exists.");
+      Log.info("No uploadable album exists.");
       return;
     }
     let uploadToken = await GPhotos.upload(path);
     if (uploadToken) {
       let result = await GPhotos.create(uploadToken, this.uploadAlbumId);
-      this.log("Upload completed.");
+      Log.info("Upload completed.");
     } else {
-      this.log("Upload Fails.");
+      Log.error("Upload Fails.");
     }
   },
 
   initializeAfterLoading: function (config) {
     this.config = config;
     this.debug = config.debug ? config.debug : false;
-    if (!this.config.scanInterval || this.config.scanInterval < 1000 * 60 * 10) this.config.scanInterval = 1000 * 60 * 10;
+
     GPhotos = new GP({
       authOption: authOption,
       debug: this.debug,
     });
+
+    this.albumsFilters = [];
+    Log.info("config.albums", config.albums);
+    for (let album of config.albums) {
+      if (album.hasOwnProperty("source") && album.hasOwnProperty("flags")) {
+        this.albumsFilters.push(new RE2(album.source, album.flags + 'u'));
+      } else {
+        this.albumsFilters.push(album);
+      }
+    }
+    delete this.config.albums;
+
+
     this.tryToIntitialize();
   },
 
@@ -111,8 +137,11 @@ module.exports = NodeHelper.create({
       1 * 60 * 1000
     );
 
-    this.log("Starting Initialization");
-    this.log("Getting album list");
+    Log.info("Starting Initialization");
+    Log.info("Getting album list");
+    /**
+     * @type {GooglePhotos.Album[]}
+     */
     let albums = await this.getAlbums();
     if (config.uploadAlbum) {
       let uploadAlbum = albums.find((a) => {
@@ -120,40 +149,19 @@ module.exports = NodeHelper.create({
       });
       if (uploadAlbum) {
         if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
-          this.log("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id);
+          Log.info("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id);
           this.uploadAlbumId = uploadAlbum.id;
           this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum);
         } else {
-          this.log("This album is not uploadable:", config.uploadAlbum);
+          Log.error("This album is not uploadable:", config.uploadAlbum);
         }
       } else {
-        this.log("Can't find uploadable album :", config.uploadAlbum);
+        Log.error("Can't find uploadable album :", config.uploadAlbum);
       }
     }
-    for (let ta of this.config.albums) {
-      let matched = albums.find((a) => {
-        if (ta === a.title) return true;
-        return false;
-      });
-      let exists = function (albums, album) {
-        return albums.some((expected) => album.id === expected.id);
-      };
-      if (!matched) {
-        this.log(`Can't find "${ta}" in your album list.`);
-      } else if (!exists(this.albums, matched)) {
-        this.albums.push(matched);
-      }
-    }
-    this.log("Finish Album scanning. Properly scanned :", this.albums.length);
-    for (let a of this.albums) {
-      let url = a.coverPhotoBaseUrl + "=w160-h160-c";
-      let fpath = path.resolve(__dirname, "cache", a.id);
-      let file = fs.createWriteStream(fpath);
-      const response = await fetch(url);
-      await finished(Readable.fromWeb(response.body).pipe(file));
-    }
-    this.log("Initialized");
-    this.sendSocketNotification("INITIALIZED", this.albums);
+    await this.getAlbumList();
+    this.log_debug("Initialized");
+    this.sendSocketNotification("INITIALIZED", this.selecetedAlbums);
 
     //load cached list - if available
     try {
@@ -162,15 +170,15 @@ module.exports = NodeHelper.create({
       if (this.config.sort === "random") {
         shuffle(this.localPhotoList);
       }
-      this.log("successfully loaded cache of ", this.localPhotoList.length, " photos");
+      this.log_debug("successfully loaded cache of ", this.localPhotoList.length, " photos");
       await this.prepAndSendChunk(5); //only 5 for extra fast startup
     } catch (err) {
-      this.log("unable to load cache", err);
+      Log.error("unable to load cache", err);
     }
 
-    this.log("Initialization complete!");
+    Log.info("Initialization complete!");
     clearTimeout(this.initializeTimer);
-    this.log("Start first scanning.");
+    Log.info("Start first scanning.");
     this.startScanning();
   },
 
@@ -182,7 +190,7 @@ module.exports = NodeHelper.create({
         this.lastLocalPhotoPntr = 0;
       }
       let numItemsToRefresh = Math.min(desiredChunk, this.localPhotoList.length - this.localPhotoPntr, 50); //50 is api limit
-      this.log("num to ref: ", numItemsToRefresh, ", DesChunk: ", desiredChunk, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
+      this.log_debug("num to ref: ", numItemsToRefresh, ", DesChunk: ", desiredChunk, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
 
       // refresh them
       let list = [];
@@ -200,15 +208,15 @@ module.exports = NodeHelper.create({
         // update pointer
         this.lastLocalPhotoPntr = this.localPhotoPntr;
         this.localPhotoPntr = this.localPhotoPntr + list.length;
-        this.log("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
+        this.log_debug("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
 
-        this.log("just sent ", list.length, " more pics");
+        this.log_debug("just sent ", list.length, " more pics");
       } else {
-        this.log("couldn't send ", list.length, " pics");
+        Log.error("couldn't send ", list.length, " pics");
       }
     } catch (err) {
-      this.log("failed to refresh and send chunk: ");
-      this.log(error_to_string(err));
+      Log.error("failed to refresh and send chunk: ");
+      Log.error(error_to_string(err));
     }
   },
 
@@ -220,7 +228,8 @@ module.exports = NodeHelper.create({
       if (err instanceof ConfigFileError || err instanceof AuthError) {
         this.sendSocketNotification("ERROR", err.message);
       }
-      this.log(error_to_string(err));
+      Log.error(error_to_string(err));
+      throw err;
     }
   },
 
@@ -235,19 +244,60 @@ module.exports = NodeHelper.create({
   },
 
   scanJob: async function () {
-    this.log("Start Album scanning");
+    Log.info("Start Album scanning");
     this.queue = null;
+    await this.getAlbumList();
     try {
-      if (this.albums.length > 0) {
+      if (this.selecetedAlbums.length > 0) {
         this.photos = await this.getImageList();
         return true;
       } else {
-        this.log("There is no album to get photos.");
+        Log.warn("There is no album to get photos.");
         return false;
       }
     } catch (err) {
-      this.log(error_to_string(err));
+      Log.error(error_to_string(err));
     }
+  },
+
+  getAlbumList: async function () {
+    Log.info("Getting album list");
+    /**
+     * @type {GooglePhotos.Album[]}
+     */
+    let albums = await this.getAlbums();
+    /**
+     * @type {GooglePhotos.Album[]}
+     */
+    let selecetedAlbums = [];
+    for (let ta of this.albumsFilters) {
+      const matches = albums.filter((a) => {
+        if (ta instanceof RE2) {
+          Log.debug(`RE2 match ${ta.source} -> '${a.title}' : ${ta.test(a.title)}`);
+          return ta.test(a.title);
+        }
+        else {
+          return ta === a.title;
+        }
+      });
+      if (matches.length === 0) {
+        Log.warn(`Can't find "${ta instanceof RE2 ? ta.source : ta}" in your album list.`);
+      }
+      else {
+        selecetedAlbums.push(...matches);
+      }
+    }
+    selecetedAlbums = Set(selecetedAlbums).toArray();
+    Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
+    for (let a of selecetedAlbums) {
+      let url = a.coverPhotoBaseUrl + "=w160-h160-c";
+      let fpath = path.resolve(__dirname, "cache", a.id);
+      let file = fs.createWriteStream(fpath);
+      const response = await fetch(url);
+      await finished(Readable.fromWeb(response.body).pipe(file));
+    }
+    this.selecetedAlbums = selecetedAlbums;
+    this.sendSocketNotification("UPDATE_ALBUMS", selecetedAlbums);
   },
 
   getImageList: async function () {
@@ -278,13 +328,13 @@ module.exports = NodeHelper.create({
     // };
     let photos = [];
     try {
-      for (let album of this.albums) {
-        this.log(`Prepare to get photo list from '${album.title}'`);
+      for (let album of this.selecetedAlbums) {
+        this.log_debug(`Prepare to get photo list from '${album.title}'`);
         let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
         list.forEach((i) => {
           i._albumTitle = album.title;
         });
-        this.log(`Got ${list.length} photo(s) from '${album.title}'`);
+        this.log_debug(`Got ${list.length} photo(s) from '${album.title}'`);
         photos = photos.concat(list);
       }
       if (photos.length > 0) {
@@ -299,22 +349,22 @@ module.exports = NodeHelper.create({
         } else {
           shuffle(photos);
         }
-        this.log(`Total indexed photos: ${photos.length}`);
+        Log.info(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
         this.localPhotoPntr = 0;
         this.lastLocalPhotoPntr = 0;
         this.prepAndSendChunk(50).then();
         try {
           await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
-          this.log("Photo list cache saved");
+          this.log_debug("Photo list cache saved");
         } catch (err) {
-          this.log(error_to_string(err));
+          Log.error(error_to_string(err));
         }
       }
 
       return photos;
     } catch (err) {
-      this.log(error_to_string(err));
+      Log.error(error_to_string(err));
     }
   },
 

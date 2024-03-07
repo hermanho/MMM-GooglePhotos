@@ -1,7 +1,9 @@
 // https://stackoverflow.com/a/2450976/2352341
 /**
  *
- * @param {[]} array
+ * @param {T[]} array
+ * @returns {T[]} - Shuffled array.
+ * @template T
  */
 function shuffle(array) {
   let currentIndex = array.length,

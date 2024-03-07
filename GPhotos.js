@@ -34,7 +34,7 @@ class Auth extends EventEmitter {
     this.#config = config;
     this.#debug = debug;
     this.init().then(
-      () => {},
+      () => { },
       (err) => this.emit("error", err),
     );
   }
@@ -42,9 +42,9 @@ class Auth extends EventEmitter {
   async init() {
     const log = this.#debug
       ? (...args) => {
-          console.log("[GPHOTOS:AUTH]", ...args);
-        }
-      : () => {};
+        console.log("[GPHOTOS:AUTH]", ...args);
+      }
+      : () => { };
     if (this.#config === undefined) config = {};
     if (this.#config.keyFilePath === undefined) {
       throw new ConfigFileError('Missing "keyFilePath" from config (This should be where your Credential file is)');
@@ -187,6 +187,10 @@ class GPhotos {
     return albums;
   }
 
+  /**
+   * @param {string} type "albums" or "sharedAlbums"
+   * @returns {Promise<GooglePhotos.Album[]>}
+   */
   async getAlbumType(type = "albums") {
     if (type !== "albums" && type !== "sharedAlbums") throw new Error("Invalid parameter for .getAlbumType()", type);
     const client = await this.onAuthReady();
@@ -234,8 +238,8 @@ class GPhotos {
      * @param {string} pageToken
      * @returns {Promise<MediaItem[]>} MediaItem
      */
-    const getImage = async (pageSize = 50, pageToken = "") => {
-      this.log("Indexing photos now. total: ", list.length);
+    const getImage = async (pageSize = 100, pageToken = "") => {
+      // this.log("Indexing photos now. total: ", list.length);
       try {
         let data = {
           albumId: albumId,

@@ -42,7 +42,21 @@ Module.register("MMM-GooglePhotos", {
     this.firstScan = true;
     if (this.config.updateInterval < 1000 * 10) this.config.updateInterval = 1000 * 10;
     this.config.condition = Object.assign({}, this.defaults.condition, this.config.condition);
-    this.sendSocketNotification("INIT", this.config);
+
+    Log.info("config.albums", this.config.albums, this.config.albums[0] instanceof RegExp);
+
+    const config = { ...this.config };
+    for (let i = 0; i < config.albums.length; i++) {
+      const album = config.albums[i];
+      if (album instanceof RegExp) {
+        config.albums[i] = {
+          source: album.source,
+          flags: album.flags,
+        };
+      }
+    }
+
+    this.sendSocketNotification("INIT", config);
     this.dynamicPosition = 0;
   },
 
@@ -56,6 +70,9 @@ Module.register("MMM-GooglePhotos", {
       this.updateTimer = setInterval(() => {
         this.updatePhotos();
       }, this.config.updateInterval);
+    }
+    if (noti === "UPDATE_ALBUMS") {
+      this.albums = payload;
     }
     if (noti === "MORE_PICS") {
       if (payload && Array.isArray(payload) && payload.length > 0) this.needMorePicsFlag = false;
@@ -203,7 +220,7 @@ Module.register("MMM-GooglePhotos", {
     wrapper.appendChild(back);
     wrapper.appendChild(current);
     wrapper.appendChild(info);
-    console.log("updated!");
+    Log.info("updated!");
     return wrapper;
   },
 
