@@ -288,6 +288,7 @@ module.exports = NodeHelper.create({
     }
     selecetedAlbums = Set(selecetedAlbums).toArray();
     Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
+    Log.info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
     for (let a of selecetedAlbums) {
       let url = a.coverPhotoBaseUrl + "=w160-h160-c";
       let fpath = path.resolve(__dirname, "cache", a.id);
