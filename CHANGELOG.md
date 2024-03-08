@@ -3,7 +3,7 @@
 **`[2.1.5] - 2024/03/08`**
 - Added: Allow regular expression ([RE2 engine](https://github.com/google/re2)) in album names [#179](https://github.com/hermanho/MMM-GooglePhotos/issues/179)
 
-  **`[2.1.4] - 2024/01/28`**
+**`[2.1.4] - 2024/01/28`**
 - Changed: Update README.md and INSTALL.md
 - Changed: Enrich error message display
 
