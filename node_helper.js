@@ -245,17 +245,17 @@ module.exports = NodeHelper.create({
      */
     let albums = await this.getAlbums();
     if (this.config.uploadAlbum) {
-      const uploadAlbum = albums.find((a) => a.title === config.uploadAlbum);
+      const uploadAlbum = albums.find((a) => a.title === this.config.uploadAlbum);
       if (uploadAlbum) {
         if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
-          Log.info("Confirmed Uploadable album:", config.uploadAlbum, uploadAlbum.id);
+          Log.info("Confirmed Uploadable album:", this.config.uploadAlbum, uploadAlbum.id);
           this.uploadAlbumId = uploadAlbum.id;
-          this.sendSocketNotification("UPLOADABLE_ALBUM", config.uploadAlbum);
+          this.sendSocketNotification("UPLOADABLE_ALBUM", this.config.uploadAlbum);
         } else {
-          Log.error("This album is not uploadable:", config.uploadAlbum);
+          Log.error("This album is not uploadable:", this.config.uploadAlbum);
         }
       } else {
-        Log.error("Can't find uploadable album :", config.uploadAlbum);
+        Log.error("Can't find uploadable album :", this.config.uploadAlbum);
       }
     }
     /**
