@@ -1,7 +1,7 @@
 # MMM-GooglePhotos Change Log
 
 **`[2.1.5] - 2024/03/08`**
-- Added: Allow regular expression ([RE2 engine](https://github.com/google/re2)) in album names [#179](https://github.com/hermanho/MMM-GooglePhotos/issues/179)
+- Added: Allow regular expression ([RE2 engine](https://github.com/google/re2)) in album names ([#179](https://github.com/hermanho/MMM-GooglePhotos/issues/179))
 
 **`[2.1.4] - 2024/01/28`**
 - Changed: Update README.md and INSTALL.md
@@ -24,7 +24,7 @@
 **`[2.1.0] - 2023/01/19`**
 
 - Changed: Update dependency packages to fix vulnerability.
-- Fixed: Change mkdirp to promise syntax (#156)
+- Fixed: Change mkdirp to promise syntax ([#156](https://github.com/hermanho/MMM-GooglePhotos/issues/156))
 
 **`[2.0.3] - 2022/10/18`**
 
