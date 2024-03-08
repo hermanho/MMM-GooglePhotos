@@ -4,3 +4,4 @@ node_modules/
 cache/*
 !cache/keep.txt
 .idea
+.DS_Store
