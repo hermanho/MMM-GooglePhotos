@@ -238,7 +238,7 @@ class GPhotos {
      * @param {string} pageToken
      * @returns {Promise<MediaItem[]>} MediaItem
      */
-    const getImage = async (pageSize = 100, pageToken = "") => {
+    const getImage = async (pageSize = 50, pageToken = "") => {
       // this.log("Indexing photos now. total: ", list.length);
       try {
         let data = {
@@ -263,7 +263,7 @@ class GPhotos {
           } else {
             if (response.data.nextPageToken) {
               await sleep(500);
-              return getImage(50, response.data.nextPageToken);
+              return getImage(pageSize, response.data.nextPageToken);
             } else {
               return list; // all found but lesser than maxNum
             }

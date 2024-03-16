@@ -1,7 +1,11 @@
 # MMM-GooglePhotos Change Log
 
+**`[2.1.6] - 2024/03/16`**
+- Fixed: [#187](https://github.com/hermanho/MMM-GooglePhotos/issues/187) fix pageSize parameter 
+- Fixed: update follow-redirects to 1.15.6 [CVE-2024-28849](https://github.com/advisories/GHSA-cxjh-pqwp-8mfp) 
+
 **`[2.1.5] - 2024/03/08`**
-- Added: Allow regular expression ([RE2 engine](https://github.com/google/re2)) in album names ([#179](https://github.com/hermanho/MMM-GooglePhotos/issues/179))
+- Added: Allow regular expression ([RE2 engine](https://github.com/google/re2)) in album names [#179](https://github.com/hermanho/MMM-GooglePhotos/issues/179)
 
 **`[2.1.4] - 2024/01/28`**
 - Changed: Update README.md and INSTALL.md
@@ -15,7 +19,7 @@
 - Changed: Use native async await instead of promise syntax.
 - Changed: Photo index will be included in logging and fine tune the logging data and messages.
 - Removed: remove generate_token.js (v1)
-- Fixed: #170 fix photo showing when GPHOTO_PREVIOUS is triggered
+- Fixed: [#170](https://github.com/hermanho/MMM-GooglePhotos/issues/170) fix photo showing when GPHOTO_PREVIOUS is triggered
 
 **`[2.1.1] - 2023/07/17`**
 
