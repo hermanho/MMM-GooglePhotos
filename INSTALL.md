@@ -1,7 +1,8 @@
 ## Installation
 
 1. Install Module
-
+    
+    Run the following command. For example, the Magic Mirror directory is `~/MagicMirror`.
     ```sh
     cd ~/MagicMirror/modules
     git clone https://github.com/hermanho/MMM-GooglePhotos.git
@@ -18,6 +19,16 @@
     ```
 
 1. Add MMM-GooglePhotos module config in ~/MagicMirror/config/config.js
+
+
+## Upgrade
+
+  Run the following command. For example, the Magic Mirror directory is `~/MagicMirror`.
+  ```sh
+  cd ~/MagicMirror/modules/MMM-GooglePhotos
+  git pull
+  npm run install-prod
+  ```
 
 ## Authorise OAuth Token
 
