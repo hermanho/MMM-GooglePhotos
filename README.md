@@ -104,6 +104,7 @@ condition: {
 ### `showHDRVersion`
 
 - If set, HDR version of the photo will be displayed when the photo contains HDR information.
+  Require ELECTRON_ENABLE_GPU=1 when start MagicMirror
 
 ### `timeFormat`
 
@@ -120,15 +121,15 @@ condition: {
   - `false` : not using.
   - callbackfunction (album, photo) : User can make his own position. It should return `[top, left, bottom, right]`
 
-```js
-autoInfoPosition: true, // or false
+  ```js
+  autoInfoPosition: true, // or false
 
-// User custom callback
-autoInfoPosition: (album, photo)=> {
- return ['10px', '10px', 'none', 'none'] // This will show photo info top-left corner.
-}
+  // User custom callback
+  autoInfoPosition: (album, photo)=> {
+  return ['10px', '10px', 'none', 'none'] // This will show photo info top-left corner.
+  }
 
-```
+  ```
 
 ## Tip
 
