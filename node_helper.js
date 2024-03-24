@@ -34,7 +34,7 @@ let GPhotos = null;
 module.exports = NodeHelper.create({
   start() {
     this.scanInterval = 1000 * 60 * 55; // fixed. no longer needs to be fixed
-    this.config = {};
+    this.config = null;
     this.scanTimer = null;
     this.selecetedAlbums = [];
     this.photos = [];
@@ -46,7 +46,13 @@ module.exports = NodeHelper.create({
     this.initializeTimer = null;
   },
 
+  initialized: () => this.config === null,
+
   socketNotificationReceived: function (notification, payload) {
+    if (this.config === null && notification !== "INIT") {
+      Log.warn(`Not initialized yet. Ignore ${notification}.`);
+      return;
+    }
     switch (notification) {
       case "INIT":
         this.initializeAfterLoading(payload);
@@ -106,6 +112,7 @@ module.exports = NodeHelper.create({
   initializeAfterLoading: function (config) {
     this.config = config;
     this.debug = config.debug ? config.debug : false;
+    Log.info("this.debug", this.debug);
 
     GPhotos = new GP({
       authOption: authOption,
@@ -158,6 +165,9 @@ module.exports = NodeHelper.create({
   },
 
   prepAndSendChunk: async function (desiredChunk = 50) {
+    if (isNaN(desiredChunk)) {
+      throw Error("desiredChunk is NaN");
+    }
     try {
       //find which ones to refresh
       if (this.localPhotoPntr < 0 || this.localPhotoPntr >= this.localPhotoList.length) {
@@ -165,6 +175,9 @@ module.exports = NodeHelper.create({
         this.lastLocalPhotoPntr = 0;
       }
       let numItemsToRefresh = Math.min(desiredChunk, this.localPhotoList.length - this.localPhotoPntr, 50); //50 is api limit
+      if (isNaN(numItemsToRefresh)) {
+        throw Error("numItemsToRefresh is NaN");
+      }
       this.log_debug("num to ref: ", numItemsToRefresh, ", DesChunk: ", desiredChunk, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
 
       // refresh them

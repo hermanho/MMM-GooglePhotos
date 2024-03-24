@@ -32,6 +32,9 @@ Module.register("MMM-GooglePhotos", {
   getStyles: function () {
     return ["MMM-GooglePhotos.css"];
   },
+  getScripts: function () {
+    return ["calcuate_HDR_size.js"];
+  },
 
   start: function () {
     this.uploadableAlbum = null;
@@ -127,7 +130,8 @@ Module.register("MMM-GooglePhotos", {
     let target = this.scanned[this.index];
     let url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
     if (this.config.showHDRVersion) {
-      url += '-gm';
+      const { width, height } = GPhotoCalculateHDRSize(this.config.showWidth, this.config.showHeight);
+      url = target.baseUrl + `=w${width}-h${height}-gm`;
     }
     this.ready(url, target);
     this.index++;
@@ -156,7 +160,7 @@ Module.register("MMM-GooglePhotos", {
       current.style.backgroundImage = `url(${url})`;
       current.classList.add("animated");
       const info = document.getElementById("GPHOTO_INFO");
-      const album = Array.isArray(this.albums) ? this.albums.find((a) => a.id === target._albumId) : { id: -1, title: '' };
+      const album = Array.isArray(this.albums) ? this.albums.find((a) => a.id === target._albumId) : { id: null, title: '' };
       if (this.config.autoInfoPosition) {
         let op = (album, target) => {
           let now = new Date();
@@ -181,7 +185,9 @@ Module.register("MMM-GooglePhotos", {
       info.innerHTML = "";
       let albumCover = document.createElement("div");
       albumCover.classList.add("albumCover");
-      albumCover.style.backgroundImage = `url(modules/MMM-GooglePhotos/cache/${album.id})`;
+      if (album.id) {
+        albumCover.style.backgroundImage = `url(modules/MMM-GooglePhotos/cache/${album.id})`;
+      }
       let albumTitle = document.createElement("div");
       albumTitle.classList.add("albumTitle");
       albumTitle.innerHTML = album.title;
