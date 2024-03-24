@@ -67,8 +67,8 @@ module.exports = NodeHelper.create({
         break;
       case "IMAGE_LOADED":
         {
-          const { id, index } = payload;
-          this.log_debug("Image loaded:", `${this.lastLocalPhotoPntr} + ${index}`, id);
+          const { id, index, url } = payload;
+          this.log_debug("Image loaded:", { lastLocalPhotoPntr: this.lastLocalPhotoPntr, index, id, url });
         }
         break;
       case "NEED_MORE_PICS":

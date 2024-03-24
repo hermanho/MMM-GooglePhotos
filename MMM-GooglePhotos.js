@@ -21,6 +21,7 @@ Module.register("MMM-GooglePhotos", {
     },
     showWidth: 1080, // These values will be used for quality of downloaded photos to show. real size to show in your MagicMirror region is recommended.
     showHeight: 1920,
+    showHDRVersion: false, // flag to enable show HDR version of the photo
     timeFormat: "YYYY/MM/DD HH:mm",
     autoInfoPosition: false,
   },
@@ -125,6 +126,9 @@ Module.register("MMM-GooglePhotos", {
     }
     let target = this.scanned[this.index];
     let url = target.baseUrl + `=w${this.config.showWidth}-h${this.config.showHeight}`;
+    if (this.config.showHDRVersion) {
+      url += '-gm';
+    }
     this.ready(url, target);
     this.index++;
     if (this.index >= this.scanned.length) {
@@ -191,7 +195,7 @@ Module.register("MMM-GooglePhotos", {
       infoText.appendChild(albumTitle);
       infoText.appendChild(photoTime);
       info.appendChild(infoText);
-      this.sendSocketNotification("IMAGE_LOADED", { id: target.id, index: this.index });
+      this.sendSocketNotification("IMAGE_LOADED", { id: target.id, index: this.index, url });
     };
     hidden.src = url;
   },

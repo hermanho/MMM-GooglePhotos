@@ -101,6 +101,10 @@ condition: {
 
 - Specify your real resolution to show.
 
+### `showHDRVersion`
+
+- If set, HDR version of the photo will be displayed when the photo contains HDR information.
+
 ### `timeFormat`
 
 - Specify time format for photo info. You can also use `relative` to show more humanized.
