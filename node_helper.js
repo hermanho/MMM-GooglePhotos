@@ -10,21 +10,12 @@ const { RE2 } = require("re2-wasm");
 const { Set } = require('immutable');
 const NodeHelper = require("node_helper");
 const Log = require("logger");
+const { mkdirp } = require("mkdirp");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
 const { shuffle } = require("./shuffle.js");
 const { error_to_string } = require("./error_to_string");
 const { ConfigFileError, AuthError } = require("./Errors.js");
-
-/**
- * 
- * @param {GooglePhotos.Album[]} albums 
- * @param {Album} album 
- * @returns boolean
- */
-let albumExists = function (albums, album) {
-  return albums.some((expected) => album.id === expected.id);
-};
 
 /**
  * @type {GP}
@@ -44,6 +35,9 @@ module.exports = NodeHelper.create({
     this.queue = null;
     this.uploadAlbumId;
     this.initializeTimer = null;
+
+    this.CACHE_ALBUMNS_PATH = path.resolve(this.path, "cache", "selecetedAlbumsCache.json");
+    this.CACHE_PHOTOLIST_PATH = path.resolve(this.path, "cache", "photoListCache.json");
   },
 
   socketNotificationReceived: function (notification, payload) {
@@ -138,17 +132,31 @@ module.exports = NodeHelper.create({
 
     Log.info("Starting Initialization");
 
-    //load cached list - if available
-    try {
-      const data = await readFile(this.path + "/cache/photoListCache.json", "utf-8");
-      this.localPhotoList = JSON.parse(data.toString());
-      if (this.config.sort === "random") {
-        shuffle(this.localPhotoList);
+    //load cached album list - if available
+    if (fs.existsSync(this.CACHE_ALBUMNS_PATH)) {
+      try {
+        const data = await readFile(this.CACHE_ALBUMNS_PATH, "utf-8");
+        this.selecetedAlbums = JSON.parse(data.toString());
+        this.log_debug("successfully loaded selecetedAlbums");
+        this.sendSocketNotification("UPDATE_ALBUMS", this.selecetedAlbums); // for fast startup
+      } catch (err) {
+        Log.error("unable to load selecetedAlbums cache", err);
       }
-      this.log_debug("successfully loaded cache of ", this.localPhotoList.length, " photos");
-      await this.prepAndSendChunk(5); //only 5 for extra fast startup
-    } catch (err) {
-      Log.error("unable to load cache", err);
+    }
+
+    //load cached list - if available
+    if (fs.existsSync(this.CACHE_PHOTOLIST_PATH)) {
+      try {
+        const data = await readFile(this.CACHE_PHOTOLIST_PATH, "utf-8");
+        this.localPhotoList = JSON.parse(data.toString());
+        if (this.config.sort === "random") {
+          shuffle(this.localPhotoList);
+        }
+        this.log_debug("successfully loaded photo list cache of ", this.localPhotoList.length, " photos");
+        await this.prepAndSendChunk(5); // only 5 for extra fast startup
+      } catch (err) {
+        Log.error("unable to load photo list cache", err);
+      }
     }
 
     Log.info("Initialization complete!");
@@ -282,9 +290,10 @@ module.exports = NodeHelper.create({
     selecetedAlbums = Set(selecetedAlbums).toArray();
     Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
     Log.info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
+    this.writeFileSafe(this.CACHE_ALBUMNS_PATH, JSON.stringify(selecetedAlbums, null, 4), "Album list cache");
     for (let a of selecetedAlbums) {
       let url = a.coverPhotoBaseUrl + "=w160-h160-c";
-      let fpath = path.resolve(__dirname, "cache", a.id);
+      let fpath = path.resolve(this.path, "cache", a.id);
       let file = fs.createWriteStream(fpath);
       const response = await fetch(url);
       await finished(Readable.fromWeb(response.body).pipe(file));
@@ -347,12 +356,7 @@ module.exports = NodeHelper.create({
         this.localPhotoPntr = 0;
         this.lastLocalPhotoPntr = 0;
         this.prepAndSendChunk(50).then();
-        try {
-          await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
-          this.log_debug("Photo list cache saved");
-        } catch (err) {
-          Log.error(error_to_string(err));
-        }
+        this.writeFileSafe(this.CACHE_PHOTOLIST_PATH, JSON.stringify(photos, null, 4), "Photo list cache");
       }
 
       return photos;
@@ -363,5 +367,13 @@ module.exports = NodeHelper.create({
 
   stop: function () {
     clearInterval(this.scanTimer);
+  },
+  writeFileSafe: async function (filePath, data, fileDescription) {
+    try {
+      await writeFile(filePath, data);
+      this.log_debug(fileDescription + " saved");
+    } catch (err) {
+      Log.error(error_to_string(err));
+    }
   },
 });

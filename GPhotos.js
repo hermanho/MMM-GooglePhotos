@@ -45,7 +45,7 @@ class Auth extends EventEmitter {
         console.log("[GPHOTOS:AUTH]", ...args);
       }
       : () => { };
-    if (this.#config === undefined) config = {};
+    if (this.#config === undefined) this.#config = {};
     if (this.#config.keyFilePath === undefined) {
       throw new ConfigFileError('Missing "keyFilePath" from config (This should be where your Credential file is)');
     }

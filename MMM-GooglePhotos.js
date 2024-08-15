@@ -72,6 +72,9 @@ Module.register("MMM-GooglePhotos", {
         }, this.config.updateInterval);
       }
     }
+    if (noti === "UPDATE_ALBUMS") {
+      this.albums = payload;
+    }
     if (noti === "MORE_PICS") {
       if (payload && Array.isArray(payload) && payload.length > 0) this.needMorePicsFlag = false;
       this.scanned = payload;
