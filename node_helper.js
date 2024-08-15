@@ -10,7 +10,6 @@ const { RE2 } = require("re2-wasm");
 const { Set } = require('immutable');
 const NodeHelper = require("node_helper");
 const Log = require("logger");
-const { mkdirp } = require("mkdirp");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
 const { shuffle } = require("./shuffle.js");
@@ -90,7 +89,7 @@ module.exports = NodeHelper.create({
     }
     let uploadToken = await GPhotos.upload(path);
     if (uploadToken) {
-      let result = await GPhotos.create(uploadToken, this.uploadAlbumId);
+      await GPhotos.create(uploadToken, this.uploadAlbumId);
       Log.info("Upload completed.");
     } else {
       Log.error("Upload Fails.");
@@ -115,7 +114,6 @@ module.exports = NodeHelper.create({
       }
     }
     delete this.config.albums;
-
 
     this.tryToIntitialize();
   },
@@ -192,8 +190,6 @@ module.exports = NodeHelper.create({
         this.lastLocalPhotoPntr = this.localPhotoPntr;
         this.localPhotoPntr = this.localPhotoPntr + list.length;
         this.log_debug("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
-
-        this.log_debug("just sent ", list.length, " more pics");
       } else {
         Log.error("couldn't send ", list.length, " pics");
       }
@@ -291,14 +287,16 @@ module.exports = NodeHelper.create({
     Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
     Log.info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
     this.writeFileSafe(this.CACHE_ALBUMNS_PATH, JSON.stringify(selecetedAlbums, null, 4), "Album list cache");
+
     for (let a of selecetedAlbums) {
       let url = a.coverPhotoBaseUrl + "=w160-h160-c";
-      let fpath = path.resolve(this.path, "cache", a.id);
+      let fpath = path.join(this.path, "cache", a.id);
       let file = fs.createWriteStream(fpath);
       const response = await fetch(url);
       await finished(Readable.fromWeb(response.body).pipe(file));
     }
     this.selecetedAlbums = selecetedAlbums;
+    Log.info("getAlbumList done");
     this.sendSocketNotification("INITIALIZED", selecetedAlbums);
   },
 

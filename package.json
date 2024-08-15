@@ -29,10 +29,12 @@
     "re2-wasm": "^1.0.2"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
+    "@eslint/js": "^9.9.0",
     "@types/magicmirror-module": "^2.16.5",
     "eslint": "^9.9.0",
-    "eslint-plugin-jest": "^28.8.0",
-    "eslint-plugin-jsdoc": "^50.2.2"
+    "eslint-plugin-jsdoc": "^50.2.2",
+    "globals": "^15.9.0"
   },
   "engines": {
     "node": ">=18"

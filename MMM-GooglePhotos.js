@@ -135,68 +135,75 @@ Module.register("MMM-GooglePhotos", {
       this.needMorePicsFlag = true;
     }
     if (this.needMorePicsFlag) {
-      this.sendSocketNotification("NEED_MORE_PICS", []);
+      setTimeout(() => {
+        this.sendSocketNotification("NEED_MORE_PICS", []);
+      }, 2000);
     }
   },
 
   ready: function (url, target) {
     let hidden = document.createElement("img");
+    const _this = this;
     hidden.onerror = (event, source, lineno, colno, error) => {
       const errObj = { url, event, source, lineno, colno, error };
       this.sendSocketNotification("IMAGE_LOAD_FAIL", errObj);
     };
     hidden.onload = () => {
-      let back = document.getElementById("GPHOTO_BACK");
-      let current = document.getElementById("GPHOTO_CURRENT");
-      current.textContent = "";
-      //current.classList.remove("animated")
-      // let dom = document.getElementById("GPHOTO");
-      back.style.backgroundImage = `url(${url})`;
-      current.style.backgroundImage = `url(${url})`;
-      current.classList.add("animated");
-      const info = document.getElementById("GPHOTO_INFO");
-      const album = Array.isArray(this.albums) ? this.albums.find((a) => a.id === target._albumId) : { id: -1, title: '' };
-      if (this.config.autoInfoPosition) {
-        let op = (album, target) => {
-          let now = new Date();
-          let q = Math.floor(now.getMinutes() / 15);
-          let r = [
-            [0, "none", "none", 0],
-            ["none", "none", 0, 0],
-            ["none", 0, 0, "none"],
-            [0, 0, "none", "none"],
-          ];
-          return r[q];
-        };
-        if (typeof this.config.autoInfoPosition === "function") {
-          op = this.config.autoInfoPosition;
-        }
-        const [top, left, bottom, right] = op(album, target);
-        info.style.setProperty("--top", top);
-        info.style.setProperty("--left", left);
-        info.style.setProperty("--bottom", bottom);
-        info.style.setProperty("--right", right);
-      }
-      info.innerHTML = "";
-      let albumCover = document.createElement("div");
-      albumCover.classList.add("albumCover");
-      albumCover.style.backgroundImage = `url(modules/MMM-GooglePhotos/cache/${album.id})`;
-      let albumTitle = document.createElement("div");
-      albumTitle.classList.add("albumTitle");
-      albumTitle.innerHTML = album.title;
-      let photoTime = document.createElement("div");
-      photoTime.classList.add("photoTime");
-      photoTime.innerHTML = this.config.timeFormat === "relative" ? moment(target.mediaMetadata.creationTime).fromNow() : moment(target.mediaMetadata.creationTime).format(this.config.timeFormat);
-      let infoText = document.createElement("div");
-      infoText.classList.add("infoText");
-
-      info.appendChild(albumCover);
-      infoText.appendChild(albumTitle);
-      infoText.appendChild(photoTime);
-      info.appendChild(infoText);
-      this.sendSocketNotification("IMAGE_LOADED", { id: target.id, index: this.index });
+      _this.render(url, target);
     };
     hidden.src = url;
+  },
+
+  render: function (url, target) {
+    let back = document.getElementById("GPHOTO_BACK");
+    let current = document.getElementById("GPHOTO_CURRENT");
+    current.textContent = "";
+    //current.classList.remove("animated")
+    // let dom = document.getElementById("GPHOTO");
+    back.style.backgroundImage = `url(${url})`;
+    current.style.backgroundImage = `url(${url})`;
+    current.classList.add("animated");
+    const info = document.getElementById("GPHOTO_INFO");
+    const album = Array.isArray(this.albums) ? this.albums.find((a) => a.id === target._albumId) : { id: -1, title: '' };
+    if (this.config.autoInfoPosition) {
+      let op = (album, target) => {
+        let now = new Date();
+        let q = Math.floor(now.getMinutes() / 15);
+        let r = [
+          [0, "none", "none", 0],
+          ["none", "none", 0, 0],
+          ["none", 0, 0, "none"],
+          [0, 0, "none", "none"],
+        ];
+        return r[q];
+      };
+      if (typeof this.config.autoInfoPosition === "function") {
+        op = this.config.autoInfoPosition;
+      }
+      const [top, left, bottom, right] = op(album, target);
+      info.style.setProperty("--top", top);
+      info.style.setProperty("--left", left);
+      info.style.setProperty("--bottom", bottom);
+      info.style.setProperty("--right", right);
+    }
+    info.innerHTML = "";
+    let albumCover = document.createElement("div");
+    albumCover.classList.add("albumCover");
+    albumCover.style.backgroundImage = `url(modules/MMM-GooglePhotos/cache/${album.id})`;
+    let albumTitle = document.createElement("div");
+    albumTitle.classList.add("albumTitle");
+    albumTitle.innerHTML = album.title;
+    let photoTime = document.createElement("div");
+    photoTime.classList.add("photoTime");
+    photoTime.innerHTML = this.config.timeFormat === "relative" ? moment(target.mediaMetadata.creationTime).fromNow() : moment(target.mediaMetadata.creationTime).format(this.config.timeFormat);
+    let infoText = document.createElement("div");
+    infoText.classList.add("infoText");
+
+    info.appendChild(albumCover);
+    infoText.appendChild(albumTitle);
+    infoText.appendChild(photoTime);
+    info.appendChild(infoText);
+    this.sendSocketNotification("IMAGE_LOADED", { id: target.id, index: this.index });
   },
 
   getDom: function () {
