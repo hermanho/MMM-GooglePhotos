@@ -173,6 +173,9 @@ class GPhotos {
     }
   }
 
+  /**
+   * @returns {Promise<GooglePhotos.Album[]>}
+   */
   async getAlbums() {
     let albums = await this.getAlbumType("albums");
     let shared = await this.getAlbumType("sharedAlbums");
