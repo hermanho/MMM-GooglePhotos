@@ -8,7 +8,7 @@ Display your photos from album of Google Photos on [MagicMirror²](https://githu
 
 ![screenshot](images/screenshot2.png)
 
-## Installation
+## Installation & Upgrade
 
 [INSTALL.md](INSTALL.md)
 
