@@ -16,27 +16,21 @@ const { shuffle } = require("./shuffle.js");
 const { error_to_string } = require("./error_to_string");
 const { ConfigFileError, AuthError } = require("./Errors.js");
 
-/**
- * 
- * @param {GooglePhotos.Album[]} albums 
- * @param {Album} album 
- * @returns boolean
- */
-let albumExists = function (albums, album) {
-  return albums.some((expected) => album.id === expected.id);
-};
+const ONE_DAY = 24 * 60 * 60 * 1000; // 1 day in milliseconds
 
 /**
  * @type {GP}
  */
 let GPhotos = null;
 
-module.exports = NodeHelper.create({
-  start() {
+const NodeHeleprObject = {
+  start: function () {
     this.scanInterval = 1000 * 60 * 55; // fixed. no longer needs to be fixed
     this.config = {};
     this.scanTimer = null;
+    /** @type {Promise<GooglePhotos.Album[]>} */
     this.selecetedAlbums = [];
+    /** @type {MediaItem[]} */
     this.photos = [];
     this.localPhotoList = [];
     this.localPhotoPntr = 0;
@@ -44,6 +38,10 @@ module.exports = NodeHelper.create({
     this.queue = null;
     this.uploadAlbumId;
     this.initializeTimer = null;
+
+    this.CACHE_ALBUMNS_PATH = path.resolve(this.path, "cache", "selecetedAlbumsCache.json");
+    this.CACHE_PHOTOLIST_PATH = path.resolve(this.path, "cache", "photoListCache.json");
+    this.CACHE_CONFIG = path.resolve(this.path, "cache", "config.json");
   },
 
   socketNotificationReceived: function (notification, payload) {
@@ -96,7 +94,7 @@ module.exports = NodeHelper.create({
     }
     let uploadToken = await GPhotos.upload(path);
     if (uploadToken) {
-      let result = await GPhotos.create(uploadToken, this.uploadAlbumId);
+      await GPhotos.create(uploadToken, this.uploadAlbumId);
       Log.info("Upload completed.");
     } else {
       Log.error("Upload Fails.");
@@ -122,7 +120,6 @@ module.exports = NodeHelper.create({
     }
     delete this.config.albums;
 
-
     this.tryToIntitialize();
   },
 
@@ -138,17 +135,37 @@ module.exports = NodeHelper.create({
 
     Log.info("Starting Initialization");
 
-    //load cached list - if available
-    try {
-      const data = await readFile(this.path + "/cache/photoListCache.json", "utf-8");
-      this.localPhotoList = JSON.parse(data.toString());
-      if (this.config.sort === "random") {
-        shuffle(this.localPhotoList);
+    //load cached album list - if available
+    const cacheAlbumDt = new Date(await this.readCacheConfig("CACHE_ALBUMNS_PATH"));
+    const notExpiredCacheAlbum = cacheAlbumDt && (Date.now() - cacheAlbumDt.getTime() < ONE_DAY);
+    if (notExpiredCacheAlbum && fs.existsSync(this.CACHE_ALBUMNS_PATH)) {
+      Log.info("Loading cached albumns list");
+      try {
+        const data = await readFile(this.CACHE_ALBUMNS_PATH, "utf-8");
+        this.selecetedAlbums = JSON.parse(data.toString());
+        this.log_debug("successfully loaded selecetedAlbums");
+        this.sendSocketNotification("UPDATE_ALBUMS", this.selecetedAlbums); // for fast startup
+      } catch (err) {
+        Log.error("unable to load selecetedAlbums cache", err);
       }
-      this.log_debug("successfully loaded cache of ", this.localPhotoList.length, " photos");
-      await this.prepAndSendChunk(5); //only 5 for extra fast startup
-    } catch (err) {
-      Log.error("unable to load cache", err);
+    }
+
+    //load cached list - if available
+    const cachePhotoListDt = new Date(await this.readCacheConfig("CACHE_PHOTOLIST_PATH"));
+    const notExpiredCachePhotoList = cachePhotoListDt && (Date.now() - cachePhotoListDt.getTime() < ONE_DAY);
+    if (notExpiredCachePhotoList && fs.existsSync(this.CACHE_PHOTOLIST_PATH)) {
+      Log.info("Loading cached albumns list");
+      try {
+        const data = await readFile(this.CACHE_PHOTOLIST_PATH, "utf-8");
+        this.localPhotoList = JSON.parse(data.toString());
+        if (this.config.sort === "random") {
+          shuffle(this.localPhotoList);
+        }
+        this.log_debug("successfully loaded photo list cache of ", this.localPhotoList.length, " photos");
+        await this.prepAndSendChunk(5); // only 5 for extra fast startup
+      } catch (err) {
+        Log.error("unable to load photo list cache", err);
+      }
     }
 
     Log.info("Initialization complete!");
@@ -184,8 +201,6 @@ module.exports = NodeHelper.create({
         this.lastLocalPhotoPntr = this.localPhotoPntr;
         this.localPhotoPntr = this.localPhotoPntr + list.length;
         this.log_debug("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
-
-        this.log_debug("just sent ", list.length, " more pics");
       } else {
         Log.error("couldn't send ", list.length, " pics");
       }
@@ -195,6 +210,9 @@ module.exports = NodeHelper.create({
     }
   },
 
+  /**
+   * @returns {Promise<GooglePhotos.Album[]>}
+   */
   getAlbums: async function () {
     try {
       let r = await GPhotos.getAlbums();
@@ -282,14 +300,18 @@ module.exports = NodeHelper.create({
     selecetedAlbums = Set(selecetedAlbums).toArray();
     Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
     Log.info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
+    this.writeFileSafe(this.CACHE_ALBUMNS_PATH, JSON.stringify(selecetedAlbums, null, 4), "Album list cache");
+    this.saveCacheConfig("CACHE_ALBUMNS_PATH", new Date().toISOString());
+
     for (let a of selecetedAlbums) {
       let url = a.coverPhotoBaseUrl + "=w160-h160-c";
-      let fpath = path.resolve(__dirname, "cache", a.id);
+      let fpath = path.join(this.path, "cache", a.id);
       let file = fs.createWriteStream(fpath);
       const response = await fetch(url);
       await finished(Readable.fromWeb(response.body).pipe(file));
     }
     this.selecetedAlbums = selecetedAlbums;
+    Log.info("getAlbumList done");
     this.sendSocketNotification("INITIALIZED", selecetedAlbums);
   },
 
@@ -319,6 +341,7 @@ module.exports = NodeHelper.create({
     //   if (at.isAfter(bt) && this.config.sort === "old") return 1;
     //   return -1;
     // };
+    /** @type {MediaItem[]} */
     let photos = [];
     try {
       for (let album of this.selecetedAlbums) {
@@ -347,12 +370,8 @@ module.exports = NodeHelper.create({
         this.localPhotoPntr = 0;
         this.lastLocalPhotoPntr = 0;
         this.prepAndSendChunk(50).then();
-        try {
-          await writeFile(this.path + "/cache/photoListCache.json", JSON.stringify(photos, null, 4));
-          this.log_debug("Photo list cache saved");
-        } catch (err) {
-          Log.error(error_to_string(err));
-        }
+        this.writeFileSafe(this.CACHE_PHOTOLIST_PATH, JSON.stringify(photos, null, 4), "Photo list cache");
+        this.saveCacheConfig("CACHE_PHOTOLIST_PATH", new Date().toISOString());
       }
 
       return photos;
@@ -364,4 +383,61 @@ module.exports = NodeHelper.create({
   stop: function () {
     clearInterval(this.scanTimer);
   },
-});
+
+  readFileSafe: async function (filePath, fileDescription) {
+    try {
+      const data = await readFile(filePath, "utf-8");
+      return data.toString();
+    } catch (err) {
+      Log.error(`unable to read ${fileDescription}: ${filePath}`);
+      Log.error(error_to_string(err));
+    }
+  },
+
+  writeFileSafe: async function (filePath, data, fileDescription) {
+    try {
+      await writeFile(filePath, data);
+      this.log_debug(fileDescription + " saved");
+    } catch (err) {
+      Log.error(`unable to write ${fileDescription}: ${filePath}`);
+      Log.error(error_to_string(err));
+    }
+  },
+
+  readCacheConfig: async function (key) {
+    try {
+      let config = {};
+      if (fs.existsSync(this.CACHE_CONFIG)) {
+        const configStr = await this.readFileSafe(this.CACHE_CONFIG, "Cache Config");
+        config = JSON.parse(configStr);
+      }
+      if (Object(config).hasOwnProperty(key)) {
+        return config[key];
+      }
+      else {
+        return undefined;
+      }
+    } catch (err) {
+      Log.error(`unable to read Cache Config`);
+      Log.error(error_to_string(err));
+    }
+  },
+
+  saveCacheConfig: async function (key, value) {
+    try {
+      let config = {};
+      if (fs.existsSync(this.CACHE_CONFIG)) {
+        const configStr = await this.readFileSafe(this.CACHE_CONFIG, "Cache Config");
+        config = JSON.parse(configStr);
+      }
+      config[key] = value;
+      await this.writeFileSafe(this.CACHE_CONFIG, JSON.stringify(config, null, 4), "Cache Config");
+      this.log_debug("Cache Config saved");
+    } catch (err) {
+      Log.error(`unable to write Cache Config`);
+      Log.error(error_to_string(err));
+    }
+  },
+};
+
+module.exports = NodeHelper.create(NodeHeleprObject);

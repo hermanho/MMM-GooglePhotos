@@ -18,7 +18,7 @@ function testKeyFile(keyFilePath) {
     if (!keys) {
       throw new Error();
     }
-  } catch (err) {
+  } catch {
     throw new Error(`keyfile ${keyFilePath} is not a valid GCP credential keyfile`);
   }
 }

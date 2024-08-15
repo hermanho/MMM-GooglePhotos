@@ -1,5 +1,10 @@
 # MMM-GooglePhotos Change Log
 
+**`[2.1.7] - 2024/03/16`**
+- Fixed: update axios to 1.7.4 [CVE-2024-39338](https://security.snyk.io/vuln/SNYK-JS-AXIOS-7361793) 
+- Fixed: depedencies packages update
+- Fixed: albumn info did not show when startup caching 
+
 **`[2.1.6] - 2024/03/16`**
 - Fixed: [#187](https://github.com/hermanho/MMM-GooglePhotos/issues/187) fix pageSize parameter 
 - Fixed: update follow-redirects to 1.15.6 [CVE-2024-28849](https://github.com/advisories/GHSA-cxjh-pqwp-8mfp) 

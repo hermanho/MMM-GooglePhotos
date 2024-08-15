@@ -11,7 +11,6 @@ const { OAuth2Client } = require("google-auth-library");
  */
 const Axios = require("axios");
 const moment = require("moment");
-const { isAxiosError } = require("axios");
 const { error_to_string } = require("./error_to_string");
 const { ConfigFileError, AuthError } = require("./Errors");
 
@@ -45,7 +44,7 @@ class Auth extends EventEmitter {
         console.log("[GPHOTOS:AUTH]", ...args);
       }
       : () => { };
-    if (this.#config === undefined) config = {};
+    if (this.#config === undefined) this.#config = {};
     if (this.#config.keyFilePath === undefined) {
       throw new ConfigFileError('Missing "keyFilePath" from config (This should be where your Credential file is)');
     }
@@ -174,6 +173,9 @@ class GPhotos {
     }
   }
 
+  /**
+   * @returns {Promise<GooglePhotos.Album[]>}
+   */
   async getAlbums() {
     let albums = await this.getAlbumType("albums");
     let shared = await this.getAlbumType("sharedAlbums");
@@ -196,7 +198,6 @@ class GPhotos {
     const client = await this.onAuthReady();
     let token = client.credentials.access_token;
     let list = [];
-    let found = 0;
     const getAlbum = async (pageSize = 50, pageToken = "") => {
       this.log("Getting Album info chunks.");
       let params = {
@@ -207,7 +208,6 @@ class GPhotos {
         let response = await this.request(token, type, "get", params, null);
         let body = response.data;
         if (body[type] && Array.isArray(body[type])) {
-          found += body[type].length;
           list = list.concat(body[type]);
         }
         if (body.nextPageToken) {

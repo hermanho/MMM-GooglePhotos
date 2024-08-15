@@ -1,5 +1,3 @@
-const { isAxiosError } = require("axios");
-
 const error_to_string = (error) => {
   const logMessage = [];
   if (error.response) {
