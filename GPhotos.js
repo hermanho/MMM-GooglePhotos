@@ -116,7 +116,7 @@ class GPhotos {
   }
 
   log(...args) {
-    if (this.debug) console.log("[GPHOTOS:CORE]", ...args);
+    console.info("[GPHOTOS:CORE]", ...args);
   }
 
   logError(...args) {
@@ -218,7 +218,7 @@ class GPhotos {
           return list;
         }
       } catch (err) {
-        this.log(err.toString());
+        this.logError(err.toString());
         throw err;
       }
     };
@@ -272,8 +272,8 @@ class GPhotos {
           return list; // empty
         }
       } catch (err) {
-        this.log(".getImageFromAlbum()", err.toString());
-        this.log(err);
+        this.logError(".getImageFromAlbum()", err.toString());
+        this.logError(err);
         throw err;
       }
     };
@@ -319,8 +319,8 @@ class GPhotos {
       });
       return created.data;
     } catch (err) {
-      this.log(".createAlbum() ", err.toString());
-      this.log(err);
+      this.logError(".createAlbum() ", err.toString());
+      this.logError(err);
       throw err;
     }
   }
@@ -337,8 +337,8 @@ class GPhotos {
       });
       return shareInfo.data;
     } catch (err) {
-      this.log(".shareAlbum()", err.toString());
-      this.log(err);
+      this.logError(".shareAlbum()", err.toString());
+      this.logError(err);
       throw err;
     }
   }
@@ -364,8 +364,8 @@ class GPhotos {
       const ret = await Axios(option);
       return ret.data;
     } catch (err) {
-      this.log(".upload()", err.toString());
-      this.log(err);
+      this.logError(".upload()", err.toString());
+      this.logError(err);
       throw err;
     }
   }
@@ -392,8 +392,8 @@ class GPhotos {
       });
       return result.data;
     } catch (err) {
-      this.log(".create() ", err.toString());
-      this.log(err);
+      this.logError(".create() ", err.toString());
+      this.logError(err);
       throw err;
     }
   }

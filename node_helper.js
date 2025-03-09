@@ -10,6 +10,7 @@ const { RE2 } = require("re2-wasm");
 const { Set } = require('immutable');
 const NodeHelper = require("node_helper");
 const Log = require("logger");
+const crypto = require("crypto");
 const GP = require("./GPhotos.js");
 const authOption = require("./google_auth.json");
 const { shuffle } = require("./shuffle.js");
@@ -55,11 +56,11 @@ const NodeHeleprObject = {
       case "IMAGE_LOAD_FAIL":
         {
           const { url, event, source, lineno, colno, error } = payload;
-          Log.error("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
+          this.log_error("[GPHOTO] hidden.onerror", { event, source, lineno, colno });
           if (error) {
-            Log.error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
+            this.log_error("[GPHOTO] hidden.onerror error", error.message, error.name, error.stack);
           }
-          Log.error("Image loading fails. Check your network.:", url);
+          this.log_error("Image loading fails. Check your network.:", url);
           this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
@@ -71,7 +72,7 @@ const NodeHeleprObject = {
         break;
       case "NEED_MORE_PICS":
         {
-          Log.info("Used last pic in list");
+          this.log_info("Used last pic in list");
           this.prepAndSendChunk(Math.ceil((20 * 60 * 1000) / this.config.updateInterval)).then(); // 20min * 60s * 1000ms / updateinterval in ms
         }
         break;
@@ -79,32 +80,44 @@ const NodeHeleprObject = {
         this.log_debug("Module is suspended so skip the UI update");
         break;
       default:
-        Log.error("Unknown notification received", notification);
+        this.log_error("Unknown notification received", notification);
     }
   },
 
   log_debug: function (...args) {
-    if (this.debug) Log.info("[GPHOTOS] [node_helper]", ...args);
+    Log.debug("[GPHOTOS] [node_helper]", ...args);
+  },
+
+  log_info: function (...args) {
+    Log.info("[GPHOTOS] [node_helper]", ...args);
+  },
+
+  log_error: function (...args) {
+    Log.error("[GPHOTOS] [node_helper]", ...args);
+  },
+
+  log_warn: function (...args) {
+    Log.warn("[GPHOTOS] [node_helper]", ...args);
   },
 
   upload: async function (path) {
     if (!this.uploadAlbumId) {
-      Log.info("No uploadable album exists.");
+      this.log_info("No uploadable album exists.");
       return;
     }
     let uploadToken = await GPhotos.upload(path);
     if (uploadToken) {
       await GPhotos.create(uploadToken, this.uploadAlbumId);
-      Log.info("Upload completed.");
+      this.log_info("Upload completed.");
     } else {
-      Log.error("Upload Fails.");
+      this.log_error("Upload Fails.");
     }
   },
 
   initializeAfterLoading: function (config) {
     this.config = config;
     this.debug = config.debug ? config.debug : false;
-
+    if (!this.config.scanInterval || this.config.scanInterval < 1000 * 60 * 10) this.config.scanInterval = 1000 * 60 * 10;
     GPhotos = new GP({
       authOption: authOption,
       debug: this.debug,
@@ -133,28 +146,62 @@ const NodeHeleprObject = {
       3 * 60 * 1000
     );
 
-    Log.info("Starting Initialization");
+    this.log_info("Starting Initialization");
+    await this.loadCache();
+
+    this.log_info("Initialization complete!");
+    clearTimeout(this.initializeTimer);
+    this.log_info("Start first scanning.");
+    this.startScanning();
+  },
+
+  calculateConfigHash: async function () {
+    if (!authOption?.savedTokensPath) {
+      return undefined;
+    }
+    const tokenPath = path.resolve(this.path, authOption?.savedTokensPath);
+    const tokenStr = await this.readFileSafe(tokenPath, "Google auth Token");
+    if (!tokenStr) {
+      return undefined;
+    }
+    const hash = crypto.createHash("sha256").update(JSON.stringify(this.config) + '\n' + tokenStr).digest("hex");
+    return hash;
+  },
+
+  loadCache: async function () {
+    const cacheHash = await this.readCacheConfig("CACHE_HASH");
+    const configHash = await this.calculateConfigHash();
+    if (!cacheHash || cacheHash !== configHash) {
+      this.log_info("Config or token has changed. Ignore cache");
+      this.log_debug("hash: ", { cacheHash, configHash });
+      this.sendSocketNotification("UPDATE_STATUS", "Loading from Google Photos...");
+      return;
+    }
+    this.log_info("Loading cache data");
+    this.sendSocketNotification("UPDATE_STATUS", "Loading from cache");
 
     //load cached album list - if available
     const cacheAlbumDt = new Date(await this.readCacheConfig("CACHE_ALBUMNS_PATH"));
     const notExpiredCacheAlbum = cacheAlbumDt && (Date.now() - cacheAlbumDt.getTime() < ONE_DAY);
+    this.log_debug("notExpiredCacheAlbum", { cacheAlbumDt, notExpiredCacheAlbum });
     if (notExpiredCacheAlbum && fs.existsSync(this.CACHE_ALBUMNS_PATH)) {
-      Log.info("Loading cached albumns list");
+      this.log_info("Loading cached albumns list");
       try {
         const data = await readFile(this.CACHE_ALBUMNS_PATH, "utf-8");
         this.selecetedAlbums = JSON.parse(data.toString());
         this.log_debug("successfully loaded selecetedAlbums");
         this.sendSocketNotification("UPDATE_ALBUMS", this.selecetedAlbums); // for fast startup
       } catch (err) {
-        Log.error("unable to load selecetedAlbums cache", err);
+        this.log_error("unable to load selecetedAlbums cache", err);
       }
     }
 
     //load cached list - if available
     const cachePhotoListDt = new Date(await this.readCacheConfig("CACHE_PHOTOLIST_PATH"));
     const notExpiredCachePhotoList = cachePhotoListDt && (Date.now() - cachePhotoListDt.getTime() < ONE_DAY);
+    this.log_debug("notExpiredCachePhotoList", { cachePhotoListDt, notExpiredCachePhotoList });
     if (notExpiredCachePhotoList && fs.existsSync(this.CACHE_PHOTOLIST_PATH)) {
-      Log.info("Loading cached albumns list");
+      this.log_info("Loading cached albumns list");
       try {
         const data = await readFile(this.CACHE_PHOTOLIST_PATH, "utf-8");
         this.localPhotoList = JSON.parse(data.toString());
@@ -164,17 +211,15 @@ const NodeHeleprObject = {
         this.log_debug("successfully loaded photo list cache of ", this.localPhotoList.length, " photos");
         await this.prepAndSendChunk(5); // only 5 for extra fast startup
       } catch (err) {
-        Log.error("unable to load photo list cache", err);
+        this.log_error("unable to load photo list cache", err);
       }
     }
 
-    Log.info("Initialization complete!");
-    clearTimeout(this.initializeTimer);
-    Log.info("Start first scanning.");
-    this.startScanning();
   },
 
   prepAndSendChunk: async function (desiredChunk = 50) {
+    this.log_debug("prepAndSendChunk");
+
     try {
       //find which ones to refresh
       if (this.localPhotoPntr < 0 || this.localPhotoPntr >= this.localPhotoList.length) {
@@ -202,11 +247,11 @@ const NodeHeleprObject = {
         this.localPhotoPntr = this.localPhotoPntr + list.length;
         this.log_debug("refreshed: ", list.length, ", totalLength: ", this.localPhotoList.length, ", Pntr: ", this.localPhotoPntr);
       } else {
-        Log.error("couldn't send ", list.length, " pics");
+        this.log_error("couldn't send ", list.length, " pics");
       }
     } catch (err) {
-      Log.error("failed to refresh and send chunk: ");
-      Log.error(error_to_string(err));
+      this.log_error("failed to refresh and send chunk: ");
+      this.log_error(error_to_string(err));
     }
   },
 
@@ -216,12 +261,16 @@ const NodeHeleprObject = {
   getAlbums: async function () {
     try {
       let r = await GPhotos.getAlbums();
+      const configHash = await this.calculateConfigHash();
+      if (configHash) {
+        await this.saveCacheConfig("CACHE_HASH", configHash);
+      }
       return r;
     } catch (err) {
       if (err instanceof ConfigFileError || err instanceof AuthError) {
         this.sendSocketNotification("ERROR", err.message);
       }
-      Log.error(error_to_string(err));
+      this.log_error(error_to_string(err));
       throw err;
     }
   },
@@ -230,7 +279,7 @@ const NodeHeleprObject = {
     const fn = () => {
       const nextScanDt = new Date(Date.now() + this.scanInterval);
       this.scanJob().then(() => {
-        Log.info("Next scan will be at", nextScanDt);
+        this.log_info("Next scan will be at", nextScanDt);
       });
     };
     // set up interval, then 1 fail won't stop future scans
@@ -240,7 +289,7 @@ const NodeHeleprObject = {
   },
 
   scanJob: async function () {
-    Log.info("Start Album scanning");
+    this.log_info("Start Album scanning");
     this.queue = null;
     await this.getAlbumList();
     try {
@@ -248,16 +297,16 @@ const NodeHeleprObject = {
         this.photos = await this.getImageList();
         return true;
       } else {
-        Log.warn("There is no album to get photos.");
+        this.log_warn("There is no album to get photos.");
         return false;
       }
     } catch (err) {
-      Log.error(error_to_string(err));
+      this.log_error(error_to_string(err));
     }
   },
 
   getAlbumList: async function () {
-    Log.info("Getting album list");
+    this.log_info("Getting album list");
     /**
      * @type {GooglePhotos.Album[]}
      */
@@ -266,14 +315,14 @@ const NodeHeleprObject = {
       const uploadAlbum = albums.find((a) => a.title === this.config.uploadAlbum);
       if (uploadAlbum) {
         if (uploadAlbum.hasOwnProperty("shareInfo") && uploadAlbum.isWriteable) {
-          Log.info("Confirmed Uploadable album:", this.config.uploadAlbum, uploadAlbum.id);
+          this.log_info("Confirmed Uploadable album:", this.config.uploadAlbum, uploadAlbum.id);
           this.uploadAlbumId = uploadAlbum.id;
           this.sendSocketNotification("UPLOADABLE_ALBUM", this.config.uploadAlbum);
         } else {
-          Log.error("This album is not uploadable:", this.config.uploadAlbum);
+          this.log_error("This album is not uploadable:", this.config.uploadAlbum);
         }
       } else {
-        Log.error("Can't find uploadable album :", this.config.uploadAlbum);
+        this.log_error("Can't find uploadable album :", this.config.uploadAlbum);
       }
     }
     /**
@@ -283,7 +332,7 @@ const NodeHeleprObject = {
     for (let ta of this.albumsFilters) {
       const matches = albums.filter((a) => {
         if (ta instanceof RE2) {
-          Log.debug(`RE2 match ${ta.source} -> '${a.title}' : ${ta.test(a.title)}`);
+          this.log_debug(`RE2 match ${ta.source} -> '${a.title}' : ${ta.test(a.title)}`);
           return ta.test(a.title);
         }
         else {
@@ -291,15 +340,15 @@ const NodeHeleprObject = {
         }
       });
       if (matches.length === 0) {
-        Log.warn(`Can't find "${ta instanceof RE2 ? ta.source : ta}" in your album list.`);
+        this.log_warn(`Can't find "${ta instanceof RE2 ? ta.source : ta}" in your album list.`);
       }
       else {
         selecetedAlbums.push(...matches);
       }
     }
     selecetedAlbums = Set(selecetedAlbums).toArray();
-    Log.info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
-    Log.info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
+    this.log_info("Finish Album scanning. Properly scanned :", selecetedAlbums.length);
+    this.log_info("Albums:", selecetedAlbums.map((a) => a.title).join(", "));
     this.writeFileSafe(this.CACHE_ALBUMNS_PATH, JSON.stringify(selecetedAlbums, null, 4), "Album list cache");
     this.saveCacheConfig("CACHE_ALBUMNS_PATH", new Date().toISOString());
 
@@ -311,11 +360,12 @@ const NodeHeleprObject = {
       await finished(Readable.fromWeb(response.body).pipe(file));
     }
     this.selecetedAlbums = selecetedAlbums;
-    Log.info("getAlbumList done");
+    this.log_info("getAlbumList done");
     this.sendSocketNotification("INITIALIZED", selecetedAlbums);
   },
 
   getImageList: async function () {
+    this.log_info("Getting image list");
     let condition = this.config.condition;
     let photoCondition = (photo) => {
       if (!photo.hasOwnProperty("mediaMetadata")) return false;
@@ -345,12 +395,12 @@ const NodeHeleprObject = {
     let photos = [];
     try {
       for (let album of this.selecetedAlbums) {
-        this.log_debug(`Prepare to get photo list from '${album.title}'`);
+        this.log_info(`Prepare to get photo list from '${album.title}'`);
         let list = await GPhotos.getImageFromAlbum(album.id, photoCondition);
         list.forEach((i) => {
           i._albumTitle = album.title;
         });
-        this.log_debug(`Got ${list.length} photo(s) from '${album.title}'`);
+        this.log_info(`Got ${list.length} photo(s) from '${album.title}'`);
         photos = photos.concat(list);
       }
       if (photos.length > 0) {
@@ -365,18 +415,20 @@ const NodeHeleprObject = {
         } else {
           shuffle(photos);
         }
-        Log.info(`Total indexed photos: ${photos.length}`);
+        this.log_info(`Total indexed photos: ${photos.length}`);
         this.localPhotoList = [...photos];
         this.localPhotoPntr = 0;
         this.lastLocalPhotoPntr = 0;
         this.prepAndSendChunk(50).then();
         this.writeFileSafe(this.CACHE_PHOTOLIST_PATH, JSON.stringify(photos, null, 4), "Photo list cache");
         this.saveCacheConfig("CACHE_PHOTOLIST_PATH", new Date().toISOString());
+      } else {
+        this.log_warn(`photos.length is 0`);
       }
 
       return photos;
     } catch (err) {
-      Log.error(error_to_string(err));
+      this.log_error(error_to_string(err));
     }
   },
 
@@ -385,12 +437,16 @@ const NodeHeleprObject = {
   },
 
   readFileSafe: async function (filePath, fileDescription) {
+    if (!fs.existsSync(filePath)) {
+      this.log_warn(`${fileDescription} does not exist: ${filePath}`);
+      return null;
+    }
     try {
       const data = await readFile(filePath, "utf-8");
       return data.toString();
     } catch (err) {
-      Log.error(`unable to read ${fileDescription}: ${filePath}`);
-      Log.error(error_to_string(err));
+      this.log_error(`unable to read ${fileDescription}: ${filePath}`);
+      this.log_error(error_to_string(err));
     }
   },
 
@@ -399,8 +455,8 @@ const NodeHeleprObject = {
       await writeFile(filePath, data);
       this.log_debug(fileDescription + " saved");
     } catch (err) {
-      Log.error(`unable to write ${fileDescription}: ${filePath}`);
-      Log.error(error_to_string(err));
+      this.log_error(`unable to write ${fileDescription}: ${filePath}`);
+      this.log_error(error_to_string(err));
     }
   },
 
@@ -409,7 +465,7 @@ const NodeHeleprObject = {
       let config = {};
       if (fs.existsSync(this.CACHE_CONFIG)) {
         const configStr = await this.readFileSafe(this.CACHE_CONFIG, "Cache Config");
-        config = JSON.parse(configStr);
+        config = JSON.parse(configStr || null);
       }
       if (Object(config).hasOwnProperty(key)) {
         return config[key];
@@ -418,8 +474,8 @@ const NodeHeleprObject = {
         return undefined;
       }
     } catch (err) {
-      Log.error(`unable to read Cache Config`);
-      Log.error(error_to_string(err));
+      this.log_error(`unable to read Cache Config`);
+      this.log_error(error_to_string(err));
     }
   },
 
@@ -427,15 +483,15 @@ const NodeHeleprObject = {
     try {
       let config = {};
       if (fs.existsSync(this.CACHE_CONFIG)) {
-        const configStr = await this.readFileSafe(this.CACHE_CONFIG, "Cache Config");
-        config = JSON.parse(configStr);
+        const configStr = await this.readFileSafe(this.CACHE_CONFIG, "Cache config JSON");
+        config = JSON.parse(configStr || null) || {};
       }
       config[key] = value;
-      await this.writeFileSafe(this.CACHE_CONFIG, JSON.stringify(config, null, 4), "Cache Config");
-      this.log_debug("Cache Config saved");
+      await this.writeFileSafe(this.CACHE_CONFIG, JSON.stringify(config, null, 4), "Cache config JSON");
+      this.log_debug(`Cache config ${key} saved`);
     } catch (err) {
-      Log.error(`unable to write Cache Config`);
-      Log.error(error_to_string(err));
+      this.log_error(`unable to write Cache Config`);
+      this.log_error(error_to_string(err));
     }
   },
 };

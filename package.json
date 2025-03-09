@@ -1,6 +1,6 @@
 {
   "name": "mmm-googlephotos",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "description": "MagicMirror² module to display your photos from Google Photos",
   "license": "MIT",
   "author": "eouia0819@gmail.com",
@@ -21,9 +21,9 @@
   ],
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
-    "axios": "^1.7.4",
-    "google-auth-library": "^9.11.0",
-    "immutable": "^5.0.0-beta.5",
+    "axios": "^1.8.2",
+    "google-auth-library": "^9.15.1",
+    "immutable": "^5.0.3",
     "mkdirp": "^3.0.1",
     "moment": "^2.30.1",
     "re2-wasm": "^1.0.2"
@@ -32,8 +32,8 @@
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.9.0",
     "@types/magicmirror-module": "^2.16.5",
-    "eslint": "^9.9.0",
-    "eslint-plugin-jsdoc": "^50.2.2",
+    "eslint": "^9.22.0",
+    "eslint-plugin-jsdoc": "^50.6.3",
     "globals": "^15.9.0"
   },
   "engines": {

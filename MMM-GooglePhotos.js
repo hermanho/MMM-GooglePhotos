@@ -93,6 +93,14 @@ Module.register("MMM-GooglePhotos", {
       errMsgDiv.textContent = payload;
       current.appendChild(errMsgDiv);
     }
+    if (noti === "CLEAR_ERROR") {
+      const current = document.getElementById("GPHOTO_CURRENT");
+      current.textContent = "";
+    }
+    if (noti === "UPDATE_STATUS") {
+      let info = document.getElementById("GPHOTO_INFO");
+      info.innerHTML = String(payload);
+    }
   },
 
   notificationReceived: function (noti, payload, sender) {
