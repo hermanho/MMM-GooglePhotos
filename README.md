@@ -2,6 +2,15 @@
 
 Display your photos from album of Google Photos on [MagicMirror²](https://github.com/MagicMirrorOrg/MagicMirror).
 
+
+> [!IMPORTANT]  
+> This plugin is not working currently because [new changes in Google Photos API](https://developers.google.com/photos/support/updates) take effect March 2025
+>
+> Reference: <br />
+> https://github.com/hermanho/MMM-GooglePhotos/issues/194 <br />
+> https://github.com/hermanho/MMM-GooglePhotos/issues/208
+
+
 ## Screenshot
 
 ![screenshot](images/screenshot.png)
