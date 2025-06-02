@@ -51,9 +51,9 @@ class Auth extends EventEmitter {
     if (this.#config.savedTokensPath === undefined) {
       throw new ConfigFileError('Missing "savedTokensPath" from config (this should be where your OAuth2 access tokens will be saved)');
     }
-    let file = path.resolve(__dirname, this.#config.savedTokensPath);
-    if (!fs.existsSync(file)) {
-      throw new AuthError("No OAuth token genreated. Please execute generate_token_v2.js before start.");
+    let tokenFilePath = path.resolve(__dirname, this.#config.savedTokensPath);
+    if (!fs.existsSync(tokenFilePath)) {
+      throw new AuthError("No OAuth token generated. Please execute generate_token_v2.js before start.");
     }
     let creds = path.resolve(__dirname, this.#config.keyFilePath);
     if (!fs.existsSync(creds)) {
@@ -62,6 +62,20 @@ class Auth extends EventEmitter {
     const key = require(this.#config.keyFilePath).installed;
     const oauthClient = new OAuth2Client(key.client_id, key.client_secret, key.redirect_uris[0]);
     let tokensCred;
+
+    // Save refreshed tokens to disk whenever they update
+    oauthClient.on("tokens", (tokens) => {
+      if (tokens.refresh_token || tokens.access_token) {
+        try {
+          mkdirp.sync(path.dirname(tokenFilePath));
+          fs.writeFileSync(tokenFilePath, JSON.stringify(oauthClient.credentials, null, 2));
+          log("Saved refreshed tokens to disk.");
+        } catch (e) {
+          console.error("[GPHOTOS:AUTH] Error saving refreshed tokens:", e);
+        }
+      }
+    });
+
     const saveTokens = async (first = false) => {
       oauthClient.setCredentials(tokensCred);
       let expired = false;
@@ -70,11 +84,11 @@ class Auth extends EventEmitter {
         log("Token is expired.");
       }
       if (expired || first) {
+        // Refresh token
         const tk = await oauthClient.refreshAccessToken();
         tokensCred = tk.credentials;
-        let tp = path.resolve(__dirname, this.#config.savedTokensPath);
-        await mkdirp(path.dirname(tp));
-        fs.writeFileSync(tp, JSON.stringify(tokensCred));
+        await mkdirp(path.dirname(tokenFilePath));
+        fs.writeFileSync(tokenFilePath, JSON.stringify(tokensCred, null, 2));
         log("Token is refreshed.");
         this.emit("ready", oauthClient);
       } else {
@@ -86,9 +100,8 @@ class Auth extends EventEmitter {
     process.nextTick(() => {
       if (this.#config.savedTokensPath) {
         try {
-          let file = path.resolve(__dirname, this.#config.savedTokensPath);
-          if (fs.existsSync(file)) {
-            const tokensFile = fs.readFileSync(file);
+          if (fs.existsSync(tokenFilePath)) {
+            const tokensFile = fs.readFileSync(tokenFilePath);
             tokensCred = JSON.parse(tokensFile);
           }
         } catch (error) {
@@ -113,6 +126,7 @@ class GPhotos {
       album: [],
       shared: [],
     };
+    this.client = null; // Cache OAuth2Client here
   }
 
   log(...args) {
@@ -132,15 +146,13 @@ class GPhotos {
    * @returns {Promise<OAuth2Client>} OAuth2Client
    */
   async onAuthReady() {
-    let auth = null;
-    try {
-      auth = new Auth(this.options.authOption, this.debug);
-    } catch (e) {
-      this.log(e.toString());
-      throw e;
+    if (this.client) {
+      return this.client; // reuse cached client if ready
     }
     return new Promise((resolve, reject) => {
+      const auth = new Auth(this.options.authOption, this.debug);
       auth.on("ready", (client) => {
+        this.client = client;
         resolve(client);
       });
       auth.on("error", (error) => {
@@ -149,12 +161,14 @@ class GPhotos {
     });
   }
 
-  async request(token, endPoint = "", method = "get", params = null, data = null) {
-    let url = endPoint;
+  async request(client, endPoint = "", method = "get", params = null, data = null) {
     try {
+      // This will refresh token if expired
+      const token = (await client.getAccessToken()).token;
+
       let config = {
         method: method,
-        url: url,
+        url: endPoint,
         baseURL: "https://photoslibrary.googleapis.com/v1/",
         headers: {
           Authorization: "Bearer " + token,
@@ -162,10 +176,11 @@ class GPhotos {
       };
       if (params) config.params = params;
       if (data) config.data = data;
+
       const ret = await Axios(config);
       return ret;
     } catch (error) {
-      this.logTrace("request fail with URL", url);
+      this.logTrace("request fail with URL", endPoint);
       this.logTrace("params", JSON.stringify(params));
       this.logTrace("data", JSON.stringify(data));
       this.logError(error_to_string(error));
@@ -196,7 +211,6 @@ class GPhotos {
   async getAlbumType(type = "albums") {
     if (type !== "albums" && type !== "sharedAlbums") throw new Error("Invalid parameter for .getAlbumType()", type);
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     let list = [];
     const getAlbum = async (pageSize = 50, pageToken = "") => {
       this.log("Getting Album info chunks.");
@@ -205,7 +219,7 @@ class GPhotos {
         pageToken: pageToken,
       };
       try {
-        let response = await this.request(token, type, "get", params, null);
+        let response = await this.request(client, type, "get", params, null);
         let body = response.data;
         if (body[type] && Array.isArray(body[type])) {
           list = list.concat(body[type]);
@@ -227,7 +241,6 @@ class GPhotos {
 
   async getImageFromAlbum(albumId, isValid = null, maxNum = 99999) {
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     /**
      * @type {MediaItem[]}
      */
@@ -246,7 +259,7 @@ class GPhotos {
           pageSize: pageSize,
           pageToken: pageToken,
         };
-        let response = await this.request(token, "mediaItems:search", "post", null, data);
+        let response = await this.request(client, "mediaItems:search", "post", null, data);
         if (response.data.hasOwnProperty("mediaItems") && Array.isArray(response.data.mediaItems)) {
           for (let item of response.data.mediaItems) {
             if (list.length < maxNum) {
@@ -285,7 +298,6 @@ class GPhotos {
       return [];
     }
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     this.log("received: ", items.length, " to refresh"); //
     let params = new URLSearchParams();
     const uniqueIds = new Set(items.map((i) => i.id));
@@ -293,7 +305,7 @@ class GPhotos {
       params.append("mediaItemIds", id);
     }
 
-    let response = await this.request(token, "mediaItems:batchGet", "get", params, null);
+    let response = await this.request(client, "mediaItems:batchGet", "get", params, null);
 
     if (response.data.hasOwnProperty("mediaItemResults") && Array.isArray(response.data.mediaItemResults)) {
       for (let i = 0; i < response.data.mediaItemResults.length; i++) {
@@ -310,9 +322,8 @@ class GPhotos {
 
   async createAlbum(albumName) {
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     try {
-      let created = await this.request(token, "albums", "post", null, {
+      let created = await this.request(client, "albums", "post", null, {
         album: {
           title: albumName,
         },
@@ -327,9 +338,8 @@ class GPhotos {
 
   async shareAlbum(albumId) {
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     try {
-      let shareInfo = await this.request(token, "albums/" + albumId + ":share", "post", null, {
+      let shareInfo = await this.request(client, "albums/" + albumId + ":share", "post", null, {
         sharedAlbumOptions: {
           isCollaborative: true,
           isCommentable: true,
@@ -343,24 +353,23 @@ class GPhotos {
     }
   }
 
-  async upload(path) {
+  async upload(filePath) {
     const client = await this.onAuthReady();
-    let token = client.credentials.access_token;
     try {
-      let newFile = fs.createReadStream(path);
+      let newFile = fs.createReadStream(filePath);
       let url = "uploads";
       let option = {
         method: "post",
         url: url,
         baseURL: "https://photoslibrary.googleapis.com/v1/",
         headers: {
-          Authorization: "Bearer " + token,
+          Authorization: "Bearer " + (await client.getAccessToken()).token,
           "Content-type": "application/octet-stream",
           //X-Goog-Upload-Content-Type: mime-type
           "X-Goog-Upload-Protocol": "raw",
         },
+        data: newFile,
       };
-      option.data = newFile;
       const ret = await Axios(option);
       return ret.data;
     } catch (err) {
